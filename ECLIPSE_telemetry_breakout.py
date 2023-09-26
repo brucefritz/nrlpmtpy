@@ -77,7 +77,10 @@ def breakout_suvm_packet(sin):
     out = suvm_packet()
     for x in sin:
         if int.from_bytes(x[1][0:4],'big') == 0x352ef853:
-            apid    = x[1][4]
+            try:
+                apid    = x[1][4]
+            except IndexError:
+                print(f'SUVM packet {x[0]} incomplete!\n')
             # sequence= x[1][5]
             # length  = int.from_bytes(x[1][6:7],"big")
             if apid == 0:

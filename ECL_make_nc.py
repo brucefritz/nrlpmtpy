@@ -6,6 +6,9 @@ Created on Wed May  3 21:33:19 2023
 
 exmample to follow at
 https://unidata.github.io/python-training/workshop/Bonus/netcdf-writing/
+
+Notes to fix for next release: TIP HV Temperature variable --> Add "T" to name
+Normalize capitalization of "EVENT" vs "Event"
 """
 from netCDF4 import Dataset    # pip install netCDF4
 from os import path
@@ -278,7 +281,7 @@ def ECL_L0_analog(fname, ebyte):
     CTS_MIP_SUVM_V_28V.long_name = 'CTS_MIP_SUVM_28V_voltage'
     CTS_MIP_SUVM_V_28V[:] = analog2.V_msm28V
     #     
-    print(ncfile)
+    # print(ncfile)
     ncfile.close()
     
     print(' Analog File Complete: ' + outname)
@@ -708,74 +711,74 @@ def ECL_L0_ALS(fname, ebyte):
     AMIPSVM_LASTCRC.long_name = 'MIP_Scan_Mirror_Last_CRC'
     AMIPSVM_LASTCRC[:] = s4_gen.last_crc
     # 
-    ATIPSVM_V5IMON = ncfile.createVariable('TIP_SUVM_V5_IMON', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_V5IMON = ncfile.createVariable('TIP_SUVM_V5_IMON', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_V5IMON.long_name = 'TIP_Scan_Mirror_5V_Current_Monitor'
     ATIPSVM_V5IMON.units = 'Amperes'
     ATIPSVM_V5IMON[:] = s2_gen.V5_IMON
-    AMIPSVM_V5IMON = ncfile.createVariable('MIP_SUVM_V5_IMON', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_V5IMON = ncfile.createVariable('MIP_SUVM_V5_IMON', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_V5IMON.long_name = 'MIP_Scan_Mirror_5V_Current_Monitor'
     AMIPSVM_V5IMON.units = 'Amperes'
     AMIPSVM_V5IMON[:] = s4_gen.V5_IMON
     # 
-    ATIPSVM_V5VMON = ncfile.createVariable('TIP_SUVM_V5_VMON', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_V5VMON = ncfile.createVariable('TIP_SUVM_V5_VMON', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_V5VMON.long_name = 'TIP_Scan_Mirror_5V_Voltage_Monitor'
     ATIPSVM_V5VMON.units = 'Volts'
     ATIPSVM_V5VMON[:] = s2_gen.V5_VMON
-    AMIPSVM_V5VMON = ncfile.createVariable('MIP_SUVM_V5_VMON', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_V5VMON = ncfile.createVariable('MIP_SUVM_V5_VMON', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_V5VMON.long_name = 'MIP_Scan_Mirror_5V_Voltage_Monitor'
     AMIPSVM_V5VMON.units = 'Volts'
     AMIPSVM_V5VMON[:] = s4_gen.V5_VMON
     # 
-    ATIPSVM_V3IMON = ncfile.createVariable('TIP_SUVM_V3_IMON', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_V3IMON = ncfile.createVariable('TIP_SUVM_V3_IMON', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_V3IMON.long_name = 'TIP_Scan_Mirror_3V_Current_Monitor'
     ATIPSVM_V3IMON.units = 'Amperes'
     ATIPSVM_V3IMON[:] = s2_gen.V3_IMON
-    AMIPSVM_V3IMON = ncfile.createVariable('MIP_SUVM_V3_IMON', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_V3IMON = ncfile.createVariable('MIP_SUVM_V3_IMON', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_V3IMON.long_name = 'MIP_Scan_Mirror_3V_Current_Monitor'
     AMIPSVM_V3IMON.units = 'Amperes'
     AMIPSVM_V3IMON[:] = s4_gen.V3_IMON
     # 
-    ATIPSVM_V3VMON = ncfile.createVariable('TIP_SUVM_V3_VMON', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_V3VMON = ncfile.createVariable('TIP_SUVM_V3_VMON', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_V3VMON.long_name = 'TIP_Scan_Mirror_3V_Voltage_Monitor'
     ATIPSVM_V3VMON.units = 'Volts'
     ATIPSVM_V3VMON[:] = s2_gen.V3_VMON
-    AMIPSVM_V3VMON = ncfile.createVariable('MIP_SUVM_V3_VMON', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_V3VMON = ncfile.createVariable('MIP_SUVM_V3_VMON', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_V3VMON.long_name = 'MIP_Scan_Mirror_3V_Voltage_Monitor'
     AMIPSVM_V3VMON.units = 'Volts'
     AMIPSVM_V3VMON[:] = s4_gen.V3_VMON
     # 
-    ATIPSVM_V22IMON = ncfile.createVariable('TIP_SUVM_V22_IMON', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_V22IMON = ncfile.createVariable('TIP_SUVM_V22_IMON', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_V22IMON.long_name = 'TIP_Scan_Mirror_22V_Current_Monitor'
     ATIPSVM_V22IMON.units = 'Amperes'
     ATIPSVM_V22IMON[:] = s2_gen.V22_IMON
-    AMIPSVM_V22IMON = ncfile.createVariable('MIP_SUVM_V22_IMON', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_V22IMON = ncfile.createVariable('MIP_SUVM_V22_IMON', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_V22IMON.long_name = 'MIP_Scan_Mirror_22V_Current_Monitor'
     AMIPSVM_V22IMON.units = 'Amperes'
     AMIPSVM_V22IMON[:] = s4_gen.V22_IMON
     # 
-    ATIPSVM_V22VMON = ncfile.createVariable('TIP_SUVM_V22_VMON', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_V22VMON = ncfile.createVariable('TIP_SUVM_V22_VMON', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_V22VMON.long_name = 'TIP_Scan_Mirror_22V_Voltage_Monitor'
     ATIPSVM_V22VMON.units = 'Volts'
     ATIPSVM_V22VMON[:] = s2_gen.V22_VMON
-    AMIPSVM_V22VMON = ncfile.createVariable('MIP_SUVM_V22_VMON', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_V22VMON = ncfile.createVariable('MIP_SUVM_V22_VMON', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_V22VMON.long_name = 'MIP_Scan_Mirror_22V_Voltage_Monitor'
     AMIPSVM_V22VMON.units = 'Volts'
     AMIPSVM_V22VMON[:] = s4_gen.V22_VMON
     # 
-    ATIPSVM_MOTORIMON = ncfile.createVariable('TIP_SUVM_MOTOR_IMON', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_MOTORIMON = ncfile.createVariable('TIP_SUVM_MOTOR_IMON', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_MOTORIMON.long_name = 'TIP_Scan_Mirror_Motor_Current_Monitor'
     ATIPSVM_MOTORIMON.units = 'Amperes'
     ATIPSVM_MOTORIMON[:] = s2_gen.MOTOR_IMON
-    AMIPSVM_MOTORIMON = ncfile.createVariable('MIP_SUVM_MOTOR_IMON', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_MOTORIMON = ncfile.createVariable('MIP_SUVM_MOTOR_IMON', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_MOTORIMON.long_name = 'MIP_Scan_Mirror_Motor_Current_Monitor'
     AMIPSVM_MOTORIMON.units = 'Amperes'
     AMIPSVM_MOTORIMON[:] = s4_gen.MOTOR_IMON
     # 
-    ATIPSVM_TEMP = ncfile.createVariable('TIP_SUVM_TEMP', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_TEMP = ncfile.createVariable('TIP_SUVM_TEMP', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_TEMP.long_name = 'TIP_Scan_Mirror_Temperature'
     ATIPSVM_TEMP.units = 'Celsius'
     ATIPSVM_TEMP[:] = s2_gen.temperature
-    AMIPSVM_TEMP = ncfile.createVariable('MIP_SUVM_TEMP', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_TEMP = ncfile.createVariable('MIP_SUVM_TEMP', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_TEMP.long_name = 'MIP_Scan_Mirror_Temperature'
     AMIPSVM_TEMP.units = 'Celsius'
     AMIPSVM_TEMP[:] = s4_gen.temperature
@@ -831,26 +834,26 @@ def ECL_L0_ALS(fname, ebyte):
     AMIPSVM_CRC.long_name = 'MIP_Scan_Mirror_CRC'
     AMIPSVM_CRC[:] = s4_gen.crc
     # 
-    ATIPSVM_ENCANGLE = ncfile.createVariable('TIP_SUVM_ENCODER_ANGLE', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_ENCANGLE = ncfile.createVariable('TIP_SUVM_ENCODER_ANGLE', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_ENCANGLE.long_name = 'TIP_Scan_Mirror_Encoder_Angle'
     ATIPSVM_ENCANGLE.units = 'Degrees'
     ATIPSVM_ENCANGLE[:] = s2_gen.encoder_angle
-    AMIPSVM_ENCANGLE = ncfile.createVariable('MIP_SUVM_ENCODER_ANGLE', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_ENCANGLE = ncfile.createVariable('MIP_SUVM_ENCODER_ANGLE', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_ENCANGLE.long_name = 'MIP_Scan_Mirror_Encoder_Angle'
     AMIPSVM_ENCANGLE.units = 'Degrees'
     AMIPSVM_ENCANGLE[:] = s4_gen.encoder_angle
     # 
-    ATIPSVM_TGTANGLE = ncfile.createVariable('TIP_SUVM_ENCODER_TARGET_ANGLE', np.float3232, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_TGTANGLE = ncfile.createVariable('TIP_SUVM_ENCODER_TARGET_ANGLE', np.float32, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_TGTANGLE.long_name = 'TIP_Scan_Mirror_Encoder_Target_Angle'
     ATIPSVM_TGTANGLE.units = 'Degrees'
     ATIPSVM_TGTANGLE[:] = s2_gen.target_angle
-    AMIPSVM_TGTANGLE = ncfile.createVariable('MIP_SUVM_ENCODER_TARGET_ANGLE', np.float3232, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_TGTANGLE = ncfile.createVariable('MIP_SUVM_ENCODER_TARGET_ANGLE', np.float32, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_TGTANGLE.long_name = 'MIP_Scan_Mirror_Encoder_Target_Angle'
     AMIPSVM_TGTANGLE.units = 'Degrees'
     AMIPSVM_TGTANGLE[:] = s4_gen.target_angle
     # 
     
-    print(ncfile)
+    # print(ncfile)
     ncfile.close()
     
     print(' ALS File Complete: ' + outname)
@@ -1156,17 +1159,7 @@ def ECL_L0_CTS(fname, ebyte):
     CMIP0_V5OVERRIDE = ncfile.createVariable('MIP_M0_5V_Override', np.ubyte, ('MIP_M0_MET',), zlib=True)
     CMIP0_V5OVERRIDE.long_name = '5V_Override'
     CMIP0_V5OVERRIDE[:] = mip0.V5_OVERRIDE
-    """
-    # M1 Variables
-    
-    Not included: 
-        # tip1 / mip1 .dark_chk = np.zeros(10*n, dtype='uint64')
-        # tip1        .red_chk = np.zeros(n, dtype='uint64')
-        # tip1        .uv_chk  = np.zeros(n, dtype='uint64')
-        # mip1        .Mg_chk = np.zeros(n, dtype='uint64')
-        # mip1        .VK_chk = np.zeros(n, dtype='uint64')
-
-    """
+    # 
     CTIP1_MET = ncfile.createVariable('TIP_M1_MET', np.uint64, ('TIP_M1_MET',), zlib=True)
     CTIP1_MET.long_name = 'Mission_Elapsed_Time_10Hz'
     CTIP1_MET.units = 'Seconds'
@@ -1443,7 +1436,7 @@ def ECL_L0_CTS(fname, ebyte):
     CMIPSVM_TGTANGLE.units = 'Degrees'
     CMIPSVM_TGTANGLE[:] = s8_gen.target_angle
     # 
-    print(ncfile)
+    # print(ncfile)
     ncfile.close()
     
     print(' CTS File Complete: ' + outname)
@@ -1470,19 +1463,24 @@ def ECL_L0_CTS(fname, ebyte):
     # self.VC_LIMIT_CHECK     = np.zeros(n, dtype='uint16') # 76
     # self.motor_flags        = np.zeros(n, dtype='uint16') # 104
     """
-def main(fname):
+def main():
     # import ECLIPSE_H9_ccsds as ehc
     # import ECLIPSE_telemetry_breakout as etb
+    DOY = 230
+    tic = time.time()
+    fname = f'C:/data/ECLIPSE/flt/NRL_1729_2023{DOY}.out'
+    
     ccsds_byte = ehc.load_eclipse_bytes_from_ccsds(fname)
     ebyte = etb.breakout_hrt_packet(ccsds_byte)
     print(f'\n Processing {fname}\n')
-    print(ebyte)
-    print('')
+    print(f'{ebyte}\n')
     
-    # ECL_L0_analog(fname, ebyte)
+    ECL_L0_analog(fname, ebyte)
     ECL_L0_CTS(fname, ebyte)
-    # ECL_L0_ALS(fname, ebyte)
+    ECL_L0_ALS(fname, ebyte)
+    toc = time.time()
+    print(f' Completed for DOY = {DOY} in {toc-tic} seconds\n')
     
 if __name__ == "__main__":
     print(f"==== {__file__} ====")
-    # main(fname)
+    main()
