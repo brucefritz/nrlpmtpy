@@ -231,129 +231,134 @@ def ecl0_survey_plot(infile, unit='', content='PMT only', save=0):
     mip0_vk    = f.variables['MIP_M0_VK']
     mip0_dark  = f.variables['MIP_M0_DARK']
     
-    utc_start = convert_gps_to_utc(f.variables['TIP_M0_MET'][59])
-    utc_stop  = convert_gps_to_utc(f.variables['TIP_M0_MET'][-0])
-    dStr_start = generate_dStr_from_astropy_utc(utc_start)
-    dStr_stop = generate_dStr_from_astropy_utc(utc_stop)
+    try:
+        utc_start = convert_gps_to_utc(f.variables['TIP_M0_MET'][59])
+        utc_stop  = convert_gps_to_utc(f.variables['TIP_M0_MET'][-0])
+        dStr_start = generate_dStr_from_astropy_utc(utc_start)
+        dStr_stop = generate_dStr_from_astropy_utc(utc_stop)
+        t1 = 0
+        t2 = -1
     
-    t1 = 0
-    t2 = -1
+        if content == 'TIP_HK':
+            fig, ax = plt.subplots(4, figsize=(6.5,9))
+            title = ''
+            v = ''
+            fig.suptitle(f'{title}\n{dStr_start} -- {dStr_stop[-5:]}\n{v} STP-H9 ECLIPSE - {unit} TIP Housekeeping') 
+            tip0_runtime    = [(x-f.variables['TIP_M0_MET'][0])/3600 for x in f.variables['TIP_M0_MET']]
+            t_lim = (tip0_runtime[t1], tip0_runtime[t2])
+            
+            ax[0].plot(tip0_runtime, tip0_red,  'r', label='Red')
+            ax[0].plot(tip0_runtime, tip0_uv,   'b', label='UV')
+            ax[0].plot(tip0_runtime, tip0_dark, 'k', label='Dark')
+            ax[0].set(ylabel='Counts/sec', xlim=t_lim, yscale='log')
+            ax[0].legend(loc=1, fontsize='x-small')
+            
+            ax[1].plot(tip0_runtime, f.variables['TIP_M0_HV_mon'], 'k')
+            ax[1].plot(tip0_runtime, f.variables['TIP_M0_HV_Event'], 'g', label='HV Event')
+            ax[1].plot(tip0_runtime, f.variables['TIP_M0_DK_EVENT'], 'c', label='DK Event')
+            ax[1].plot(tip0_runtime, f.variables['TIP_M0_RD_EVENT'], 'r', label='RD Event')
+            ax[1].plot(tip0_runtime, f.variables['TIP_M0_UV_EVENT'], 'b', label='UV Event')
+            ax[1].plot(tip0_runtime, f.variables['TIP_M0_Sun_Event'],'y', label='SN Event')
+            ax[1].set(ylabel='Voltage [V]', xlim=t_lim, yscale='log')
+            ax[1].legend(loc=2, fontsize='x-small')
+            
+            ax[2].plot(tip0_runtime, f.variables['TIP_M0_TF1'],  'r', label='Filter 1')
+            ax[2].plot(tip0_runtime, f.variables['TIP_M0_TF2'],  'b', label='Filter 2')
+            ax[2].plot(tip0_runtime, f.variables['TIP_M0_TIDC'], 'g', label='IDC')
+            ax[2].plot(tip0_runtime, f.variables['TIP_M0_HV'],   'k', label='HV')
+            ax[2].set(ylabel='Temperature', xlim=t_lim)
+            ax[2].legend(loc=2, fontsize='x-small')
+            
+            ax[3].plot(tip0_runtime, f.variables['TIP_M0_sun'], 'k')
+            ax[3].set(xlabel='Time of Day [hr]', ylabel='Sun Sensor [V]',xlim=t_lim)
     
-    if content == 'TIP_HK':
-        fig, ax = plt.subplots(4, figsize=(6.5,9))
-        title = ''
-        v = ''
-        fig.suptitle(f'{title}\n{dStr_start} -- {dStr_stop[-5:]}\n{v} STP-H9 ECLIPSE - {unit} TIP Housekeeping') 
-        tip0_runtime    = [(x-f.variables['TIP_M0_MET'][0])/3600 for x in f.variables['TIP_M0_MET']]
-        t_lim = (tip0_runtime[t1], tip0_runtime[t2])
+        if content == 'MIP_HK':
+            fig, ax = plt.subplots(4, figsize=(6.5,9))
+            title = ''
+            v = ''
+            fig.suptitle(f'{title}\n{dStr_start} -- {dStr_stop[-5:]}\n{v} STP-H9 ECLIPSE - {unit} MIP Housekeeping') 
+            mip0_runtime    = [(x-f.variables['MIP_M0_MET'][0])/3600 for x in f.variables['MIP_M0_MET']]
+            t_lim = (mip0_runtime[t1], mip0_runtime[t2])
+            
+            ax[0].plot(mip0_runtime, mip0_mg,  'r', label='Mg+')
+            ax[0].plot(mip0_runtime, mip0_vk,   'b', label='VK')
+            ax[0].plot(mip0_runtime, mip0_dark, 'k', label='Dark')
+            ax[0].set(ylabel='Counts/sec', xlim=t_lim, yscale='log')
+            ax[0].legend(loc=1, fontsize='x-small')
+            
+            ax[1].plot(mip0_runtime, f.variables['MIP_M0_HV_mon'], 'k')
+            ax[1].plot(mip0_runtime, f.variables['MIP_M0_HV_Event'], 'g', label='HV Event')
+            ax[1].plot(mip0_runtime, f.variables['MIP_M0_DK_EVENT'], 'c', label='DK Event')
+            ax[1].plot(mip0_runtime, f.variables['MIP_M0_RD_EVENT'], 'r', label='RD Event')
+            ax[1].plot(mip0_runtime, f.variables['MIP_M0_UV_EVENT'], 'b', label='UV Event')
+            ax[1].plot(mip0_runtime, f.variables['MIP_M0_Sun_Event'],'y', label='SN Event')
+            ax[1].set(ylabel='Voltage [V]', xlim=t_lim, ylim=(0.5,1500), yscale='log')
+            ax[1].legend(loc=2, fontsize='x-small')
+            
+            ax[2].plot(mip0_runtime, f.variables['MIP_M0_TLENS'],'r', label='Lens')
+            ax[2].plot(mip0_runtime, f.variables['MIP_M0_TPMT'], 'b', label='PMT')
+            ax[2].plot(mip0_runtime, f.variables['MIP_M0_TIDC'], 'g', label='IDC')
+            ax[2].plot(mip0_runtime, f.variables['MIP_M0_HV'],   'k', label='HV')
+            ax[2].set(ylabel='Temperature', xlim=t_lim)
+            ax[2].legend(loc=2, fontsize='x-small')
+            
+            ax[3].plot(mip0_runtime, f.variables['MIP_M0_sun'], 'k')
+            ax[3].set(xlabel='Time of Day [hr]', ylabel='Sun Sensor [V]',xlim=t_lim)
         
-        ax[0].plot(tip0_runtime, tip0_red,  'r', label='Red')
-        ax[0].plot(tip0_runtime, tip0_uv,   'b', label='UV')
-        ax[0].plot(tip0_runtime, tip0_dark, 'k', label='Dark')
-        ax[0].set(ylabel='Counts/sec', xlim=t_lim, yscale='log')
-        ax[0].legend(loc=1, fontsize='x-small')
-        
-        ax[1].plot(tip0_runtime, f.variables['TIP_M0_HV_mon'], 'k')
-        ax[1].plot(tip0_runtime, f.variables['TIP_M0_HV_Event'], 'g', label='HV Event')
-        ax[1].plot(tip0_runtime, f.variables['TIP_M0_DK_EVENT'], 'c', label='DK Event')
-        ax[1].plot(tip0_runtime, f.variables['TIP_M0_RD_EVENT'], 'r', label='RD Event')
-        ax[1].plot(tip0_runtime, f.variables['TIP_M0_UV_EVENT'], 'b', label='UV Event')
-        ax[1].plot(tip0_runtime, f.variables['TIP_M0_Sun_Event'],'y', label='SN Event')
-        ax[1].set(ylabel='Voltage [V]', xlim=t_lim, yscale='log')
-        ax[1].legend(loc=2, fontsize='x-small')
-        
-        ax[2].plot(tip0_runtime, f.variables['TIP_M0_TF1'],  'r', label='Filter 1')
-        ax[2].plot(tip0_runtime, f.variables['TIP_M0_TF2'],  'b', label='Filter 2')
-        ax[2].plot(tip0_runtime, f.variables['TIP_M0_TIDC'], 'g', label='IDC')
-        ax[2].plot(tip0_runtime, f.variables['TIP_M0_HV'],   'k', label='HV')
-        ax[2].set(ylabel='Temperature', xlim=t_lim)
-        ax[2].legend(loc=2, fontsize='x-small')
-        
-        ax[3].plot(tip0_runtime, f.variables['TIP_M0_sun'], 'k')
-        ax[3].set(xlabel='Time of Day [hr]', ylabel='Sun Sensor [V]',xlim=t_lim)
+        if content == 'SUVM_HK':
+            fig, ax = plt.subplots(5, figsize=(6.5,9))
+            title = ''
+            v = ''
+            fig.suptitle(f'{title}\n{dStr_start} -- {dStr_stop[-5:]}\n{v} STP-H9 ECLIPSE - {unit} SUVM Housekeeping') 
+            
+            tip0_runtime = [(x-f.variables['TIP_SUVM_TIME'][0])/3600 for x in f.variables['TIP_SUVM_TIME'][:-2]]
+            mip0_runtime = [(x-f.variables['MIP_SUVM_TIME'][0])/3600 for x in f.variables['MIP_SUVM_TIME'][:-2]]
+            
+            t_lim = (mip0_runtime[t1], mip0_runtime[t2])
+            
+            ax[0].plot(tip0_runtime,f.variables['TIP_SUVM_V5_IMON'][:-2], 'k',label='I$_{5V}$')
+            ax[0].plot(tip0_runtime,f.variables['TIP_SUVM_V3_IMON'][:-2], 'b',label='I$_{3.3V}$')
+            ax[0].plot(tip0_runtime,f.variables['TIP_SUVM_V22_IMON'][:-2],'r',label='I$_{22V}$ ')
+            ax[0].plot(tip0_runtime,f.variables['TIP_SUVM_MOTOR_IMON'][:-2],'g',label='I$_{MOT}$ ')
+            ax[0].set(ylabel='TIP SUVM\nCurrent', xlim=t_lim)
+            ax[0].legend(loc=1, fontsize='x-small')
+            
+            ax[1].plot(tip0_runtime,f.variables['TIP_SUVM_V5_VMON'][:-2], 'k',label='V$_{5V}$')
+            ax[1].plot(tip0_runtime,f.variables['TIP_SUVM_V3_VMON'][:-2], 'b',label='V$_{3.3V}$')
+            ax[1].plot(tip0_runtime,f.variables['TIP_SUVM_V22_VMON'][:-2],'r',label='V$_{22V}$')
+            ax[1].set(ylabel='TIP SUVM\nVoltage', xlim=t_lim)
+            ax[1].legend(loc=1, fontsize='x-small')
+            
+            ax[2].plot(mip0_runtime,f.variables['MIP_SUVM_V5_IMON'][:-2], 'k',label='I$_{5V}$')
+            ax[2].plot(mip0_runtime,f.variables['MIP_SUVM_V3_IMON'][:-2], 'b',label='I$_{3.3V}$')
+            ax[2].plot(mip0_runtime,f.variables['MIP_SUVM_V22_IMON'][:-2],'r',label='I$_{22V}$ ')
+            ax[2].plot(mip0_runtime,f.variables['MIP_SUVM_MOTOR_IMON'][:-2],'g',label='I$_{MOT}$ ')
+            ax[2].set(ylabel='MIP SUVM\nCurrent', xlim=t_lim)
+            ax[2].legend(loc=1, fontsize='x-small')
+            
+            ax[3].plot(mip0_runtime,f.variables['MIP_SUVM_V5_VMON'][:-2], 'k',label='V$_{5V}$')
+            ax[3].plot(mip0_runtime,f.variables['MIP_SUVM_V3_VMON'][:-2], 'b',label='V$_{3.3V}$')
+            ax[3].plot(mip0_runtime,f.variables['MIP_SUVM_V22_VMON'][:-2],'r',label='V$_{22V}$')
+            ax[3].set(ylabel='MIP SUVM\nVoltage', xlim=t_lim)
+            ax[3].legend(loc=1, fontsize='x-small')
+            
+            ax[4].plot(tip0_runtime,f.variables['TIP_SUVM_TEMP'][:-2],'k',label='TIP')
+            ax[4].plot(mip0_runtime,f.variables['MIP_SUVM_TEMP'][:-2],'r',label='MIP')
+            ax[4].set(xlabel='Time of Day [hr]', ylabel='Temperatures [C]', xlim=t_lim)
+            ax[4].legend(loc=1, fontsize='x-small')
     
-    if content == 'MIP_HK':
-        fig, ax = plt.subplots(4, figsize=(6.5,9))
-        title = ''
-        v = ''
-        fig.suptitle(f'{title}\n{dStr_start} -- {dStr_stop[-5:]}\n{v} STP-H9 ECLIPSE - {unit} MIP Housekeeping') 
-        mip0_runtime    = [(x-f.variables['MIP_M0_MET'][0])/3600 for x in f.variables['MIP_M0_MET']]
-        t_lim = (mip0_runtime[t1], mip0_runtime[t2])
+        if save > 0:
+            path, fname = os.path.split(infile)
+            s = str(utc_start)
+            outname = f'{path}/{s[0:4]}{s[5:7]}{s[8:10]}-STPH9-ECLIPSE-{unit}_{content}.png'
+            print(f' Saving plot ... {outname}')
+            fig.savefig(outname)
+        print(f'\n ------ {unit} plot routine complete ------- \n')
         
-        ax[0].plot(mip0_runtime, mip0_mg,  'r', label='Mg+')
-        ax[0].plot(mip0_runtime, mip0_vk,   'b', label='VK')
-        ax[0].plot(mip0_runtime, mip0_dark, 'k', label='Dark')
-        ax[0].set(ylabel='Counts/sec', xlim=t_lim, yscale='log')
-        ax[0].legend(loc=1, fontsize='x-small')
-        
-        ax[1].plot(mip0_runtime, f.variables['MIP_M0_HV_mon'], 'k')
-        ax[1].plot(mip0_runtime, f.variables['MIP_M0_HV_Event'], 'g', label='HV Event')
-        ax[1].plot(mip0_runtime, f.variables['MIP_M0_DK_EVENT'], 'c', label='DK Event')
-        ax[1].plot(mip0_runtime, f.variables['MIP_M0_RD_EVENT'], 'r', label='RD Event')
-        ax[1].plot(mip0_runtime, f.variables['MIP_M0_UV_EVENT'], 'b', label='UV Event')
-        ax[1].plot(mip0_runtime, f.variables['MIP_M0_Sun_Event'],'y', label='SN Event')
-        ax[1].set(ylabel='Voltage [V]', xlim=t_lim, ylim=(0.5,1500), yscale='log')
-        ax[1].legend(loc=2, fontsize='x-small')
-        
-        ax[2].plot(mip0_runtime, f.variables['MIP_M0_TLENS'],'r', label='Lens')
-        ax[2].plot(mip0_runtime, f.variables['MIP_M0_TPMT'], 'b', label='PMT')
-        ax[2].plot(mip0_runtime, f.variables['MIP_M0_TIDC'], 'g', label='IDC')
-        ax[2].plot(mip0_runtime, f.variables['MIP_M0_HV'],   'k', label='HV')
-        ax[2].set(ylabel='Temperature', xlim=t_lim)
-        ax[2].legend(loc=2, fontsize='x-small')
-        
-        ax[3].plot(mip0_runtime, f.variables['MIP_M0_sun'], 'k')
-        ax[3].set(xlabel='Time of Day [hr]', ylabel='Sun Sensor [V]',xlim=t_lim)
+    except IndexError:
+        print(f'\nNo data in {infile}\n\n Skipping plot \n')
     
-    if content == 'SUVM_HK':
-        fig, ax = plt.subplots(5, figsize=(6.5,9))
-        title = ''
-        v = ''
-        fig.suptitle(f'{title}\n{dStr_start} -- {dStr_stop[-5:]}\n{v} STP-H9 ECLIPSE - {unit} SUVM Housekeeping') 
-        
-        tip0_runtime = [(x-f.variables['TIP_SUVM_TIME'][0])/3600 for x in f.variables['TIP_SUVM_TIME'][:-2]]
-        mip0_runtime = [(x-f.variables['MIP_SUVM_TIME'][0])/3600 for x in f.variables['MIP_SUVM_TIME'][:-2]]
-        
-        t_lim = (mip0_runtime[t1], mip0_runtime[t2])
-        
-        ax[0].plot(tip0_runtime,f.variables['TIP_SUVM_V5_IMON'][:-2], 'k',label='I$_{5V}$')
-        ax[0].plot(tip0_runtime,f.variables['TIP_SUVM_V3_IMON'][:-2], 'b',label='I$_{3.3V}$')
-        ax[0].plot(tip0_runtime,f.variables['TIP_SUVM_V22_IMON'][:-2],'r',label='I$_{22V}$ ')
-        ax[0].plot(tip0_runtime,f.variables['TIP_SUVM_MOTOR_IMON'][:-2],'g',label='I$_{MOT}$ ')
-        ax[0].set(ylabel='TIP SUVM\nCurrent', xlim=t_lim)
-        ax[0].legend(loc=1, fontsize='x-small')
-        
-        ax[1].plot(tip0_runtime,f.variables['TIP_SUVM_V5_VMON'][:-2], 'k',label='V$_{5V}$')
-        ax[1].plot(tip0_runtime,f.variables['TIP_SUVM_V3_VMON'][:-2], 'b',label='V$_{3.3V}$')
-        ax[1].plot(tip0_runtime,f.variables['TIP_SUVM_V22_VMON'][:-2],'r',label='V$_{22V}$')
-        ax[1].set(ylabel='TIP SUVM\nVoltage', xlim=t_lim)
-        ax[1].legend(loc=1, fontsize='x-small')
-        
-        ax[2].plot(mip0_runtime,f.variables['MIP_SUVM_V5_IMON'][:-2], 'k',label='I$_{5V}$')
-        ax[2].plot(mip0_runtime,f.variables['MIP_SUVM_V3_IMON'][:-2], 'b',label='I$_{3.3V}$')
-        ax[2].plot(mip0_runtime,f.variables['MIP_SUVM_V22_IMON'][:-2],'r',label='I$_{22V}$ ')
-        ax[2].plot(mip0_runtime,f.variables['MIP_SUVM_MOTOR_IMON'][:-2],'g',label='I$_{MOT}$ ')
-        ax[2].set(ylabel='MIP SUVM\nCurrent', xlim=t_lim)
-        ax[2].legend(loc=1, fontsize='x-small')
-        
-        ax[3].plot(mip0_runtime,f.variables['MIP_SUVM_V5_VMON'][:-2], 'k',label='V$_{5V}$')
-        ax[3].plot(mip0_runtime,f.variables['MIP_SUVM_V3_VMON'][:-2], 'b',label='V$_{3.3V}$')
-        ax[3].plot(mip0_runtime,f.variables['MIP_SUVM_V22_VMON'][:-2],'r',label='V$_{22V}$')
-        ax[3].set(ylabel='MIP SUVM\nVoltage', xlim=t_lim)
-        ax[3].legend(loc=1, fontsize='x-small')
-        
-        ax[4].plot(tip0_runtime,f.variables['TIP_SUVM_TEMP'][:-2],'k',label='TIP')
-        ax[4].plot(mip0_runtime,f.variables['MIP_SUVM_TEMP'][:-2],'r',label='MIP')
-        ax[4].set(xlabel='Time of Day [hr]', ylabel='Temperatures [C]', xlim=t_lim)
-        ax[4].legend(loc=1, fontsize='x-small')
     
-    if save > 0:
-        path, fname = os.path.split(infile)
-        s = str(utc_start)
-        outname = f'{path}/{s[0:4]}{s[5:7]}{s[8:10]}-STPH9-ECLIPSE-{unit}_{content}.png'
-        print(f' Saving plot ... {outname}')
-        fig.savefig(outname)
-
     """
     Variable list
     'TIP_SUVM_ENCODER_TARGET_ANGLE', 'MIP_SUVM_ENCODER_TARGET_ANGLE']
@@ -390,8 +395,6 @@ def ecl0_survey_plot(infile, unit='', content='PMT only', save=0):
     'TIP_SUVM_LAST_CRC', 'MIP_SUVM_LAST_CRC', 
     'TIP_SUVM_CRC', 'MIP_SUVM_CRC', 
     """
-    
-    print(f'\n ------ {unit} plot routine complete ------- \n')
     # 
 def ecl_primary_data_plot(infile, unit='', content='', quartile='', save=0):
     print(f'Plotting data values from {infile}')
@@ -425,96 +428,99 @@ def ecl_primary_data_plot(infile, unit='', content='', quartile='', save=0):
     tip0_met = f.variables['TIP_M0_MET']
     mip0_met = f.variables['MIP_M0_MET']
     
-    utc_start = convert_gps_to_utc(tip0_met[59])
-    utc_stop  = convert_gps_to_utc(mip0_met[-0])
-    dStr_start = generate_dStr_from_astropy_utc(utc_start)
-    dStr_stop = generate_dStr_from_astropy_utc(utc_stop)
-    
-    if quartile == 'first':
-        t1 = 0
-        t2 = len(tip0_met)/4
-        qrt = '_a'
-    elif quartile == 'second':
-        t1 = len(tip0_met)/4
-        t2 = len(tip0_met)/2
-        qrt = '_b'
-    elif quartile == 'third':
-        t1 = len(tip0_met)/2
-        t2 = len(tip0_met)*3/4
-        qrt = '_c'
-    elif quartile == 'fourth':
-        t1 = len(tip0_met)*3/4
-        t2 = -1
-        qrt = '_d'
-    elif quartile == 'custom':
-        t1 = len(tip0_met)*2/3 + 2900
-        t2 = t1 + 200
-    else:
-        t1 = 0
-        t2 = -1
-    
-    t_lim = (tip0_met[t1], tip0_met[t2])
-    
-    if content == 'PMT_10Hz':
-        fig, ax = plt.subplots(4, figsize=(6.5, 9))
-        title = ''
-        v = ''
-        fig.suptitle(f'{title}\n{dStr_start}\n{v} STP-H9 ECLIPSE - {unit} 6 Hour PMT Plot') 
+    try:
+        utc_start = convert_gps_to_utc(tip0_met[59])
+        utc_stop  = convert_gps_to_utc(mip0_met[-0])
+        dStr_start = generate_dStr_from_astropy_utc(utc_start)
+        dStr_stop = generate_dStr_from_astropy_utc(utc_stop)
         
-        ax[0].plot(tip0_met, tip0_red, 'r', label='Red')
-        ax[0].plot(tip0_met, tip0_uv,  'b', label='UV')
-        ax[0].plot(tip0_met, tip0_dark,'k', label='Dark')
-        ax[0].set(ylabel='Tri-TIP M0 (1 Hz)', xlim=t_lim, yscale = 'log')
-        ax[0].legend(loc=1, fontsize='x-small')
+        if quartile == 'first':
+            t1 = 0
+            t2 = len(tip0_met)/4
+            qrt = '_a'
+        elif quartile == 'second':
+            t1 = len(tip0_met)/4
+            t2 = len(tip0_met)/2
+            qrt = '_b'
+        elif quartile == 'third':
+            t1 = len(tip0_met)/2
+            t2 = len(tip0_met)*3/4
+            qrt = '_c'
+        elif quartile == 'fourth':
+            t1 = len(tip0_met)*3/4
+            t2 = -1
+            qrt = '_d'
+        elif quartile == 'custom':
+            t1 = len(tip0_met)*2/3 + 2900
+            t2 = t1 + 200
+        else:
+            t1 = 0
+            t2 = -1
         
-        ax[1].plot(tip1_met, tip1_red, 'r', label='Red')
-        ax[1].plot(tip1_met, tip1_uv,  'b', label='UV')
-        ax[1].plot(tip1_met, tip1_dark,'k', label='Dark')
-        ax[1].set(ylabel='Tri-TIP M1 (10 Hz)', xlim=t_lim, yscale = 'log')
-        ax[1].legend(loc=1, fontsize='x-small')
+        t_lim = (tip0_met[t1], tip0_met[t2])
         
-        ax[2].plot(mip0_met, mip0_mg,  'r', label='Mg+')
-        ax[2].plot(mip0_met, mip0_vk,  'b', label='VK')
-        ax[2].plot(mip0_met, mip0_dark,'k', label='Dark')
-        ax[2].set(xlabel='GPS Time', ylabel='Tri-MIP M1 (1 Hz)', xlim=t_lim, yscale = 'log')
-        ax[2].legend(loc=1, fontsize='x-small')
+        if content == 'PMT_10Hz':
+            fig, ax = plt.subplots(4, figsize=(6.5, 9))
+            title = ''
+            v = ''
+            fig.suptitle(f'{title}\n{dStr_start}\n{v} STP-H9 ECLIPSE - {unit} 6 Hour PMT Plot') 
+            
+            ax[0].plot(tip0_met, tip0_red, 'r', label='Red')
+            ax[0].plot(tip0_met, tip0_uv,  'b', label='UV')
+            ax[0].plot(tip0_met, tip0_dark,'k', label='Dark')
+            ax[0].set(ylabel='Tri-TIP M0 (1 Hz)', xlim=t_lim, yscale = 'log')
+            ax[0].legend(loc=1, fontsize='x-small')
+            
+            ax[1].plot(tip1_met, tip1_red, 'r', label='Red')
+            ax[1].plot(tip1_met, tip1_uv,  'b', label='UV')
+            ax[1].plot(tip1_met, tip1_dark,'k', label='Dark')
+            ax[1].set(ylabel='Tri-TIP M1 (10 Hz)', xlim=t_lim, yscale = 'log')
+            ax[1].legend(loc=1, fontsize='x-small')
+            
+            ax[2].plot(mip0_met, mip0_mg,  'r', label='Mg+')
+            ax[2].plot(mip0_met, mip0_vk,  'b', label='VK')
+            ax[2].plot(mip0_met, mip0_dark,'k', label='Dark')
+            ax[2].set(xlabel='GPS Time', ylabel='Tri-MIP M1 (1 Hz)', xlim=t_lim, yscale = 'log')
+            ax[2].legend(loc=1, fontsize='x-small')
+            
+            ax[3].plot(mip1_met, mip1_mg,  'r', label='Mg+')
+            ax[3].plot(mip1_met, mip1_vk,  'b', label='VK')
+            ax[3].plot(mip1_met, mip1_dark,'k', label='Dark')
+            ax[3].set(xlabel='GPS Time', ylabel='Tri-MIP M1 (10 Hz)', xlim=t_lim, yscale = 'log')
+            ax[3].legend(loc=1, fontsize='x-small')
+            
+        if content == 'PMT+SUVM':
+            fig, ax = plt.subplots(4, figsize=(6.5, 9))
+            title = ''
+            v = ''
+            fig.suptitle(f'{title}\n{dStr_start}\n{v} STP-H9 ECLIPSE - {unit} 6 Hour SUVM Plot') 
+            
+            ax[0].plot(tip0_met, tip0_red, 'r', label='Red')
+            ax[0].plot(tip0_met, tip0_uv,  'b', label='UV')
+            ax[0].plot(tip0_met, tip0_dark,'k', label='Dark')
+            ax[0].set(ylabel='Tri-TIP M0 (1 Hz)', xlim=t_lim, yscale = 'log')
+            ax[0].legend(loc=1, fontsize='x-small')
+            
+            ax[1].plot(tips_time, f.variables['TIP_SUVM_ENCODER_ANGLE'][:-2], 'k')
+            ax[1].set(ylabel='Tri-TIP SUVM', xlim=t_lim, ylim=(0,46))
+            
+            ax[2].plot(mip0_met, mip0_mg,  'r', label='Mg+')
+            ax[2].plot(mip0_met, mip0_vk,  'b', label='VK')
+            ax[2].plot(mip0_met, mip0_dark,'k', label='Dark')
+            ax[2].set(xlabel='GPS Time', ylabel='Tri-MIP M1 (10 Hz)', xlim=t_lim, yscale = 'log')
+            ax[2].legend(loc=1, fontsize='x-small')
+            
+            ax[3].plot(mips_time, f.variables['MIP_SUVM_ENCODER_ANGLE'][:-2], 'k')
+            ax[3].set(xlabel='GPS Time', ylabel='Tri-MIP SUVM', xlim=t_lim, ylim=(0,46))
         
-        ax[3].plot(mip1_met, mip1_mg,  'r', label='Mg+')
-        ax[3].plot(mip1_met, mip1_vk,  'b', label='VK')
-        ax[3].plot(mip1_met, mip1_dark,'k', label='Dark')
-        ax[3].set(xlabel='GPS Time', ylabel='Tri-MIP M1 (10 Hz)', xlim=t_lim, yscale = 'log')
-        ax[3].legend(loc=1, fontsize='x-small')
-        
-    if content == 'PMT+SUVM':
-        fig, ax = plt.subplots(4, figsize=(6.5, 9))
-        title = ''
-        v = ''
-        fig.suptitle(f'{title}\n{dStr_start}\n{v} STP-H9 ECLIPSE - {unit} 6 Hour SUVM Plot') 
-        
-        ax[0].plot(tip0_met, tip0_red, 'r', label='Red')
-        ax[0].plot(tip0_met, tip0_uv,  'b', label='UV')
-        ax[0].plot(tip0_met, tip0_dark,'k', label='Dark')
-        ax[0].set(ylabel='Tri-TIP M0 (1 Hz)', xlim=t_lim, yscale = 'log')
-        ax[0].legend(loc=1, fontsize='x-small')
-        
-        ax[1].plot(tips_time, f.variables['TIP_SUVM_ENCODER_ANGLE'][:-2], 'k')
-        ax[1].set(ylabel='Tri-TIP SUVM', xlim=t_lim, ylim=(0,46))
-        
-        ax[2].plot(mip0_met, mip0_mg,  'r', label='Mg+')
-        ax[2].plot(mip0_met, mip0_vk,  'b', label='VK')
-        ax[2].plot(mip0_met, mip0_dark,'k', label='Dark')
-        ax[2].set(xlabel='GPS Time', ylabel='Tri-MIP M1 (10 Hz)', xlim=t_lim, yscale = 'log')
-        ax[2].legend(loc=1, fontsize='x-small')
-        
-        ax[3].plot(mips_time, f.variables['MIP_SUVM_ENCODER_ANGLE'][:-2], 'k')
-        ax[3].set(xlabel='GPS Time', ylabel='Tri-MIP SUVM', xlim=t_lim, ylim=(0,46))
-    
-    if save > 0:
-        path, fname = os.path.split(infile)
-        s = str(utc_start)
-        outname = f'{path}/{s[0:4]}{s[5:7]}{s[8:10]}-STPH9-ECLIPSE-{unit}_{content}{qrt}.png'
-        print(f' Saving plot ... {outname}')
-        fig.savefig(outname)
+        if save > 0:
+            path, fname = os.path.split(infile)
+            s = str(utc_start)
+            outname = f'{path}/{s[0:4]}{s[5:7]}{s[8:10]}-STPH9-ECLIPSE-{unit}_{content}{qrt}.png'
+            print(f' Saving plot ... {outname}')
+            fig.savefig(outname)
+    except IndexError:
+        print(f'\nNo data in {infile}\n\n Skipping plot \n')
     # 
 def ecl0_suvm_log(infile, unit='', content='PMT only'):
     print(f'Plotting data values from {infile}')
@@ -525,46 +531,48 @@ def ecl0_suvm_log(infile, unit='', content='PMT only'):
     print(f.variables['TIP_SUVM_LAST_CRC'][0:10])
 
 def main():
-    DOY = 219
-    tic = time.time()
-    cts_file = f'C:/data/ECLIPSE/flt/L0_CTS/NRL_1729_2023{DOY}_ECLIPSE_L0_CTS.nc'
-    als_file = f'C:/data/ECLIPSE/flt/L0_ALS/NRL_1729_2023{DOY}_ECLIPSE_L0_ALS.nc'
-    analog_file = f'C:/data/ECLIPSE/flt/L0_analog/NRL_1729_2023{DOY}_ECLIPSE_L0_analog.nc'
-    # 
-    ### Analog plots for both ALS and CTS
-    ecl0_analog_survey_plot(analog_file, save=1)
-    
-    # Day long summary plots
-    ecl0_survey_plot(als_file, unit='ALS', content='TIP_HK', save=1)
-    ecl0_survey_plot(cts_file, unit='CTS', content='TIP_HK', save=1)
-    ecl0_survey_plot(als_file, unit='ALS', content='MIP_HK', save=1)
-    ecl0_survey_plot(cts_file, unit='CTS', content='MIP_HK', save=1)
-    ecl0_survey_plot(als_file, unit='ALS', content='SUVM_HK', save=1)
-    ecl0_survey_plot(cts_file, unit='CTS', content='SUVM_HK', save=1)
-    
-    # ecl_primary_data_plot(cts_file, unit='ALS', content='PMT_10Hz', quartile='custom', save=0)
-    
-    # 6-hour summary plots
-    ecl_primary_data_plot(cts_file, unit='CTS', content='PMT_10Hz', quartile='first', save=1)
-    ecl_primary_data_plot(cts_file, unit='CTS', content='PMT_10Hz', quartile='second', save=1)
-    ecl_primary_data_plot(cts_file, unit='CTS', content='PMT_10Hz', quartile='third', save=1)
-    ecl_primary_data_plot(cts_file, unit='CTS', content='PMT_10Hz', quartile='fourth', save=1)
-    
-    ecl_primary_data_plot(cts_file, unit='CTS', content='PMT+SUVM', quartile='first', save=1)
-    ecl_primary_data_plot(cts_file, unit='CTS', content='PMT+SUVM', quartile='second', save=1)
-    ecl_primary_data_plot(cts_file, unit='CTS', content='PMT+SUVM', quartile='third', save=1)
-    ecl_primary_data_plot(cts_file, unit='CTS', content='PMT+SUVM', quartile='fourth', save=1)
-    
-    ecl_primary_data_plot(als_file, unit='ALS', content='PMT_10Hz', quartile='first', save=1)
-    ecl_primary_data_plot(als_file, unit='ALS', content='PMT_10Hz', quartile='second', save=1)
-    ecl_primary_data_plot(als_file, unit='ALS', content='PMT_10Hz', quartile='third', save=1)
-    ecl_primary_data_plot(als_file, unit='ALS', content='PMT_10Hz', quartile='fourth', save=1)
-    
-    ecl_primary_data_plot(als_file, unit='ALS', content='PMT+SUVM', quartile='first', save=1)
-    ecl_primary_data_plot(als_file, unit='ALS', content='PMT+SUVM', quartile='second', save=1)
-    ecl_primary_data_plot(als_file, unit='ALS', content='PMT+SUVM', quartile='third', save=1)
-    ecl_primary_data_plot(als_file, unit='ALS', content='PMT+SUVM', quartile='fourth', save=1)
-    
+    # DOY = 219
+    for DOY in range(224,225):
+        tic = time.time()
+        cts_file = f'C:/data/ECLIPSE/flt/L0_CTS/NRL_1729_2023{DOY}_ECLIPSE_L0_CTS.nc'
+        als_file = f'C:/data/ECLIPSE/flt/L0_ALS/NRL_1729_2023{DOY}_ECLIPSE_L0_ALS.nc'
+        analog_file = f'C:/data/ECLIPSE/flt/L0_analog/NRL_1729_2023{DOY}_ECLIPSE_L0_analog.nc'
+        # 
+        ### Analog plots for both ALS and CTS
+        ecl0_analog_survey_plot(analog_file, save=1)
+        
+        # Day long summary plots
+        ecl0_survey_plot(cts_file, unit='CTS', content='TIP_HK', save=1)
+        ecl0_survey_plot(cts_file, unit='CTS', content='MIP_HK', save=1)
+        ecl0_survey_plot(cts_file, unit='CTS', content='SUVM_HK', save=1)
+        
+        # 6-hour summary plots
+        ecl_primary_data_plot(cts_file, unit='CTS', content='PMT_10Hz', quartile='first', save=1)
+        ecl_primary_data_plot(cts_file, unit='CTS', content='PMT_10Hz', quartile='second', save=1)
+        ecl_primary_data_plot(cts_file, unit='CTS', content='PMT_10Hz', quartile='third', save=1)
+        ecl_primary_data_plot(cts_file, unit='CTS', content='PMT_10Hz', quartile='fourth', save=1)
+        
+        ecl_primary_data_plot(cts_file, unit='CTS', content='PMT+SUVM', quartile='first', save=1)
+        ecl_primary_data_plot(cts_file, unit='CTS', content='PMT+SUVM', quartile='second', save=1)
+        ecl_primary_data_plot(cts_file, unit='CTS', content='PMT+SUVM', quartile='third', save=1)
+        ecl_primary_data_plot(cts_file, unit='CTS', content='PMT+SUVM', quartile='fourth', save=1)
+        
+        # Day long summary plots
+        ecl0_survey_plot(als_file, unit='ALS', content='TIP_HK', save=1)
+        ecl0_survey_plot(als_file, unit='ALS', content='MIP_HK', save=1)
+        ecl0_survey_plot(als_file, unit='ALS', content='SUVM_HK', save=1)
+        
+        # 6-hour summary plots
+        ecl_primary_data_plot(als_file, unit='ALS', content='PMT_10Hz', quartile='first', save=1)
+        ecl_primary_data_plot(als_file, unit='ALS', content='PMT_10Hz', quartile='second', save=1)
+        ecl_primary_data_plot(als_file, unit='ALS', content='PMT_10Hz', quartile='third', save=1)
+        ecl_primary_data_plot(als_file, unit='ALS', content='PMT_10Hz', quartile='fourth', save=1)
+        
+        ecl_primary_data_plot(als_file, unit='ALS', content='PMT+SUVM', quartile='first', save=1)
+        ecl_primary_data_plot(als_file, unit='ALS', content='PMT+SUVM', quartile='second', save=1)
+        ecl_primary_data_plot(als_file, unit='ALS', content='PMT+SUVM', quartile='third', save=1)
+        ecl_primary_data_plot(als_file, unit='ALS', content='PMT+SUVM', quartile='fourth', save=1)
+        
     # ###ecl0_suvm_log(cts_file, unit='CTS')
     
     """
