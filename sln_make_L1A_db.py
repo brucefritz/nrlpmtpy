@@ -178,7 +178,7 @@ def main():
     """
     Step 2 Read File List
     """
-    sln_L1A_dir = 'C:\\data\\SLINGSHOT\\flt\\L1A\\2307\\*.nc'
+    sln_L1A_dir = 'C:\\data\\SLINGSHOT\\flt\\L1A\\2308\\*.nc'
     file_list = glob.glob(sln_L1A_dir)
     """
     Step 3 Load data from file (function) and insert into table
