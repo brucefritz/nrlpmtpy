@@ -6,13 +6,13 @@ ECLIPSE_iib_converter
     
     Function:
         eclipse_iib_converter()
-        Takes input as n-length list of [n x MET, n x bytearray(IIB data)]
+        Takes input as n-length list of [n x GPS_time, n x bytearray(IIB data)]
 
 @author: bfritz
 """
 class iib_records():
     def __init__(self):
-        self.MET = []
+        self.GPS_time = []
         self.I_mip12V = []
         self.I_mip3V = []
         self.V_mip12V = []
@@ -33,7 +33,7 @@ class iib_records():
         self.V_msm5V = []
     def __str__(self):
         a1 = "Number of IIB Records: "
-        a2 = f"Time: {len(self.MET)}"
+        a2 = f"Time: {len(self.GPS_time)}"
         x1 = f"Tri-MIP: I_12V = {len(self.I_mip12V)}, I_3.3V = {len(self.I_mip3V)}"
         x3 = f"Tri-TIP: I_12V = {len(self.I_tip12V)}, I_3.3V = {len(self.I_tip3V)}"
         s2 = f"Tri-MIP SUVM: I_5V = {len(self.I_msm5V)}, I_3.3V = {len(self.I_msm3V)}"
@@ -56,7 +56,7 @@ def eclipse_iib_converter(din):
             val = val / 4095. * 5.
             rec.append(val)
         # 
-        out.MET.append(x[0])
+        out.GPS_time.append(x[0])
         out.I_mip12V.append(0.1  * rec[0])
         out.I_mip3V.append( 0.1  * rec[1])
         out.V_mip12V.append(2.47 * rec[2])

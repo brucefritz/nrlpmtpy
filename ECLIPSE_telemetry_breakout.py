@@ -19,33 +19,37 @@ import numpy as np
 
 class eclipse_packet():
     def __init__(self):
-        self.tip1_m0 = []
-        self.tip1_m1 = []
-        self.mip3_m0 = []
-        self.mip3_m1 = []
-        self.tip5_m0 = []
-        self.tip5_m1 = []
-        self.mip7_m0 = []
-        self.mip7_m1 = []
-        self.suvm2   = []
-        self.suvm4   = []
-        self.suvm6   = []
-        self.suvm8   = []
-        self.analog1 = []
-        self.analog2 = []
+        self.tip1_m0  = []
+        self.tip1_m1  = []
+        self.tip1_aux = []
+        self.mip3_m0  = []
+        self.mip3_m1  = []
+        self.mip3_aux = []
+        self.tip5_m0  = []
+        self.tip5_m1  = []
+        self.tip5_aux = []
+        self.mip7_m0  = []
+        self.mip7_m1  = []
+        self.mip7_aux = []
+        self.suvm2    = []
+        self.suvm4    = []
+        self.suvm6    = []
+        self.suvm8    = []
+        self.analog1  = []
+        self.analog2  = []
 #     def __repr__(self):
 #         return f"<Test a:{self.a} b:{self.b}>"
     def __str__(self):
         a1 = f"ALS Housekeeping Packets: out.ana1 = {len(self.analog1)}"
         a2 = f"CTS Housekeeping Packets: out.ana2 = {len(self.analog2)}"
-        x1 = f"TIP1 Packets: out.tip1_m0 = {len(self.tip1_m0)}, out.tip1_m1 = {len(self.tip1_m1)}"
-        x3 = f"MIP3 Packets: out.mip3_m0 = {len(self.mip3_m0)}, out.mip3_m1 = {len(self.mip3_m1)}"
-        x5 = f"TIP5 Packets: out.tip5_m0 = {len(self.tip5_m0)}, out.tip5_m1 = {len(self.tip5_m1)}"
-        x7 = f"MIP7 Packets: out.mip7_m0 = {len(self.mip7_m0)}, out.mip7_m1 = {len(self.mip7_m1)}"
-        s2 = f"SUVM2 Packets: out.suvm2 = {len(self.suvm2)}"
-        s4 = f"SUVM4 Packets: out.suvm4 = {len(self.suvm4)}"
-        s6 = f"SUVM6 Packets: out.suvm6 = {len(self.suvm6)}"
-        s8 = f"SUVM8 Packets: out.suvm8 = {len(self.suvm8)}"
+        x1 = f"TIP1 Pkts: m0 = {len(self.tip1_m0)}, m1 = {len(self.tip1_m1)}, Aux = {len(self.tip1_aux)}"
+        x3 = f"MIP3 Pkts: m0 = {len(self.mip3_m0)}, m1 = {len(self.mip3_m1)}, Aux = {len(self.mip3_aux)}"
+        x5 = f"TIP5 Pkts: m0 = {len(self.tip5_m0)}, m1 = {len(self.tip5_m1)}, Aux = {len(self.tip5_aux)}"
+        x7 = f"MIP7 Pkts: m0 = {len(self.mip7_m0)}, m1 = {len(self.mip7_m1)}, Aux = {len(self.mip7_aux)}"
+        s2 = f"SUVM2 Pkts: suvm2 = {len(self.suvm2)}"
+        s4 = f"SUVM4 Pkts: suvm4 = {len(self.suvm4)}"
+        s6 = f"SUVM6 Pkts: suvm6 = {len(self.suvm6)}"
+        s8 = f"SUVM8 Pkts: suvm8 = {len(self.suvm8)}"
         return f'{a1}\n{a2}\n\n{x1}\n{x3}\n{x5}\n{x7}\n\n{s2}\n{s4}\n{s6}\n{s8}\n'
     # 
 class suvm_packet():
@@ -118,7 +122,7 @@ def breakout_hrt_packet(fd):
         if inst_id[0:4] == '0900':
             if bytearray(hdr[6:8]).hex() != '4000':
                 fault_bytes = bytearray(hdr[6:8]).hex()
-                print('Faulty instrument HRT Packet ID: {fault_bytes}')
+                print(f'Faulty instrument HRT Packet ID: {fault_bytes}')
         # 
         if sync_word == '0x1acffc1d':
             pkt_length  = np.ushort(hdr[6] | hdr[7] << 8)
@@ -130,7 +134,9 @@ def breakout_hrt_packet(fd):
                 if inst_id == '01007500' and data_packet[105:109].decode('utf-8') == 'AF09':
                     out.tip1_m0.append([time_tag, data_packet])  # XIP 1 M0 (117b)
             except UnicodeDecodeError:
-                print(f'Error decoding bytes in ATIP HRT packet {i}\n')
+                print(f'Error decoding bytes in ATIP HRT packet at GPS time {time_tag}')
+            if inst_id == '01000500':   # XIP 1 Aux (5 bytes)
+                out.tip1_aux.append([time_tag, data_packet])
             if inst_id == '0100ba00':   # XIP 1 M1  (186 bytes)
                 out.tip1_m1.append([time_tag, data_packet])
             if inst_id[0:4] == '0200':   # SUVM 2
@@ -139,7 +145,9 @@ def breakout_hrt_packet(fd):
                 if inst_id == '03007500' and data_packet[105:109].decode('utf-8') == 'BF02':
                     out.mip3_m0.append([time_tag, data_packet])  # XIP 3 M0 (117b)
             except UnicodeDecodeError:
-                print(f'Error decoding bytes in AMIP HRT packet {i}\n')
+                print(f'Error decoding bytes in AMIP HRT packet at GPS time {time_tag}')
+            if inst_id == '03000500':   # XIP 3 Aux (5 bytes)
+                out.mip3_aux.append([time_tag, data_packet])
             if inst_id == '0300ba00':   # XIP 3 M1  (186 bytes)
                 out.mip3_m1.append([time_tag, data_packet])
             if inst_id[0:4] == '0400':   # SUVM 4
@@ -148,7 +156,9 @@ def breakout_hrt_packet(fd):
                 if inst_id == '05007500' and data_packet[105:109].decode('utf-8') == 'AF08':
                     out.tip5_m0.append([time_tag, data_packet])  # XIP 5 M0 (117b)
             except UnicodeDecodeError:
-                print(f'Error decoding bytes in CTIP HRT packet {i}\n')
+                print(f'Error decoding bytes in CTIP HRT packet at GPS time {time_tag}')
+            if inst_id == '05000500':   # XIP 5 Aux (5 bytes)
+                out.tip5_aux.append([time_tag, data_packet])
             if inst_id == '0500ba00':   # XIP 5 M1  (186 bytes)
                 out.tip5_m1.append([time_tag, data_packet])
             if inst_id[0:4] == '0600':   # SUVM 6
@@ -157,7 +167,9 @@ def breakout_hrt_packet(fd):
                 if inst_id == '07007500' and data_packet[105:109].decode('utf-8') == 'BF03':
                     out.mip7_m0.append([time_tag, data_packet])   # XIP7 M0 (117b)
             except UnicodeDecodeError:
-                print(f'Error decoding bytes in CMIP HRT packet {i}\n')
+                print(f'Error decoding bytes in CMIP HRT packet at GPS time {time_tag}')
+            if inst_id == '07000500':   # XIP 7 Aux (5 bytes)
+                out.mip7_aux.append([time_tag, data_packet])
             if inst_id == '0700ba00':   # XIP 7 M1  (186 bytes)
                 out.mip7_m1.append([time_tag, data_packet])
             if inst_id[0:4] == '0800':   # SUVM 8

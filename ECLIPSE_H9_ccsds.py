@@ -18,6 +18,8 @@ where EncCCSDS is the encrypted data file, e.g.
 """
 import sys
 import os
+import pandas as pd
+import numpy as np
 # 
 def decrypt_eclipse_hrt_from_ccsds(ccsds_in):
     print('Prodecure only fit to run from Sypder IDE (Windows)')
@@ -92,6 +94,63 @@ def load_eclipse_bytes_from_ccsds(ccsds_in):
     print('CCSDS File Contents: ', pkt, ' HRT packets\n')
     return [item for subset in outbyte for item in subset]
 # 
+def load_iss_hs_bytes_from_ccsds(ccsds_in):
+    """
+    This routine reads a STP-H9 GSE nbinary file, format 6
+    This is a customized GSE packet that includes only the ISS USGNC parameters
+    
+    # H&S packets are fixed length of 453 bytes
+    
+    Header (known, relevant parameters)
+    Bytes [Bits] -- Description
+      0- 38        -- Total Header
+     22- 23  [0:2] -- Version number (0 == Version 1)
+     22- 23  [ 3 ] -- Header type, Core (0) or Payload (1)
+     22- 23  [ 4 ] -- Secondary header (0 for H9)
+     22- 23 [5:15] -- Payload APID (674 == 0x02A2 for STP-H9)
+        Ver.=1 + Head.=1 + Second. head. = 0 + APID = 674 --> Word 11 = 0x1AA2
+     35- 36 Packet Counter (little endian)
+     48- 51                  - GPS Time (uint)
+         61                  - GPS Time (byte, 1/256.)
+      71- 74, 84- 87, 97-100 - Inertial Position (float, ft)
+     110-113,123-126,136-139 - Inertial Velocity (float, ft/s)
+     149-152,162-165,175-178 - Inertial Rate (float)
+     188-191,201-204,214-217,227-230 - Inertial Quaternion (float)
+     240-243,253-256,266-269,279-282 - LVLH Quaternion (float)
+        -292                 - State Vector Quality Flag (byte)
+        -302                 - Attitude Quaternion Quality Flag (byte)
+        -312                 - Solar LOS Quality Flag (byte)
+        -322                 - Attitude Rate Quality Flag (byte)
+     332-335,345-348,358-361 - CTRS Position (float, ft)
+     371-374,384-387,397-400 - CTRS Velocity (float, ft/s)
+     410-413,423-426,436-439,449-452 - CTRS Quaternion (float)
+    """
+    fin = open(ccsds_in,"rb")
+    outbyte = []
+    pkt_ctr = 0
+    bad_packet = 0
+    while 1:
+        packet = bytearray(fin.read(453)) # Read in a full packet at a time
+        if len(packet) < 453:			  # if 453 bytes not read, end of file
+            fin.close()
+            break
+        abin = bin(int(packet[22:24].hex(), 16))
+        apid = int(abin[-11:], 2)
+        gpstime = int.from_bytes(packet[48:52], 'big')
+        if apid == 674 and gpstime > 1362875400:
+            outbyte.append(packet)
+            pkt_ctr += 1
+        else:
+            bad_packet += 1
+            print('Anomalous packet')
+    # 
+    print('STP-H9 H&S File: ', ccsds_in)
+    print('STP-H9 H&S File Contents: ', pkt_ctr, ' packets')
+    print('                 skipped: ', bad_packet, ' bad packets\n')
+    # 
+    return outbyte
+    
+# 
 # def main():
     ### Debug test for decrypt
     # dfile = 'C:/data/ECLIPSE/gnd/06-H9_integration/221128-H9_KSC/IssCcsds.1729_2022-11-28_10~29~19'
@@ -101,6 +160,10 @@ def load_eclipse_bytes_from_ccsds(ccsds_in):
     # ccsds_file_in = 'C:/data/ECLIPSE/gnd/08-H9_TVAC/220909-TVAC/IssCcsds.1729_2022-09-09_22_54_13.out'
     # ccsds_byte = load_eclipse_bytes_from_ccsds(ccsds_file_in)
     # 
+    ### Debug test for ISS CCSDS loader
+    # iss_file_in = 'C:/data/STPH9/flt/2312/NRL_674f6_2023361'
+    # iss_byte = load_iss_hs_bytes_from_ccsds(iss_file_in)
+    
 # if __name__ == "__main__":
 #     print(f"==== {__file__} ====")
 #     main()

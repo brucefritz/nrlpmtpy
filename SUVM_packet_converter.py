@@ -24,15 +24,15 @@ class suvm_bootloader_packet():
         self.apid               = np.zeros(n, dtype='ubyte')  #  4
         self.sequence_count     = np.zeros(n, dtype='ubyte')  #  5
         self.length             = np.zeros(n, dtype='uint16') #  6
-        self.system_counter     = np.zeros(n, dtype='uint64') #  8, 1/1000 s
-        self.gps_pps            = np.zeros(n, dtype='uint64') # 16, 1/1000 s
-        self.watchdog_counter   = np.zeros(n, dtype='uint32') # 24, 1/50,000,000 s
+        self.system_counter     = np.zeros(n, dtype='float64')#  8, 1/1000 s
+        self.gps_pps            = np.zeros(n, dtype='float64')# 16, 1/1000 s
+        self.watchdog_counter   = np.zeros(n, dtype='uint32') # 24, 1/50,000 s
         self.version            = np.zeros(n, dtype='uint32') # 28
         self.reset_status       = np.zeros(n, dtype='ubyte')  # 32
         self.last_cmd_status    = np.zeros(n, dtype='ubyte')  # 33
         self.last_cmd_id        = np.zeros(n, dtype='ubyte')  # 34
         self.last_cmd_opcode    = np.zeros(n, dtype='ubyte')  # 35
-        self.last_cmd_time      = np.zeros(n, dtype='uint64') # 36, 1/1000 s
+        self.last_cmd_time      = np.zeros(n, dtype='float64')# 36, 1/1000 s
         self.cmd_success        = np.zeros(n, dtype='ubyte')  # 44
         self.cmd_fail           = np.zeros(n, dtype='ubyte')  # 45
         self.flash_last_op      = np.zeros(n, dtype='ubyte')  # 46
@@ -58,15 +58,15 @@ class suvm_general_packet():
         self.apid               = np.zeros(n, dtype='ubyte')  #  4
         self.sequence_count     = np.zeros(n, dtype='ubyte')  #  5
         self.length             = np.zeros(n, dtype='uint16') #  6
-        self.system_counter     = np.zeros(n, dtype='uint64') #  8
-        self.gps_pps            = np.zeros(n, dtype='uint64') # 16
+        self.system_counter     = np.zeros(n, dtype='float64') #  8, 1/1000 s
+        self.gps_pps            = np.zeros(n, dtype='float64') # 16, 1/1000 s
         self.watchdog_counter   = np.zeros(n, dtype='uint32') # 24
         self.version            = np.zeros(n, dtype='uint32') # 28
         self.reset_status       = np.zeros(n, dtype='ubyte')  # 32
         self.last_cmd_status    = np.zeros(n, dtype='ubyte')  # 33
         self.last_cmd_id        = np.zeros(n, dtype='ubyte')  # 34
         self.last_cmd_opcode    = np.zeros(n, dtype='ubyte')  # 35
-        self.last_cmd_time      = np.zeros(n, dtype='uint64') # 36
+        self.last_cmd_time      = np.zeros(n, dtype='float64') # 36, 1/1000 s
         self.cmd_success        = np.zeros(n, dtype='ubyte')  # 44
         self.cmd_fail           = np.zeros(n, dtype='ubyte')  # 45
         self.flash_last_op      = np.zeros(n, dtype='ubyte')  # 46
@@ -114,7 +114,7 @@ class suvm_command_packet():
         self.apid               = np.zeros(n, dtype='ubyte')  #  4
         self.sequence_count     = np.zeros(n, dtype='ubyte')  #  5
         self.length             = np.zeros(n, dtype='uint16') #  6
-        self.system_counter     = np.zeros(n, dtype='uint64') #  8, 1/1000 s
+        self.system_counter     = np.zeros(n, dtype='float64') # 8, 1/1000 s
         self.last_command       = np.zeros(n, dtype='S50') # Sufficient bytes for any cmd
         self.crc                = np.zeros(n, dtype='uint32') # 64
     # def __repr__(self):
@@ -130,7 +130,7 @@ class suvm_memory_packet():
         self.apid               = np.zeros(n, dtype='ubyte')  #  4
         self.sequence_count     = np.zeros(n, dtype='ubyte')  #  5
         self.length             = np.zeros(n, dtype='uint16') #  6
-        self.system_counter     = np.zeros(n, dtype='uint64') #  8, 1/1000 s
+        self.system_counter     = np.zeros(n, dtype='float64') #  8, 1/1000 s
         self.address            = np.zeros(n, dtype='uint32') #  16
         self.last_command       = np.zeros(n, dtype='str')  #, 20 Sufficient bytes for any cmd
         self.crc                = np.zeros(n, dtype='uint32') # 21-276
@@ -147,8 +147,8 @@ class suvm_encoder_packet():
         self.apid               = np.zeros(n, dtype='ubyte')  #  4
         self.sequence_count     = np.zeros(n, dtype='ubyte')  #  5
         self.length             = np.zeros(n, dtype='uint16') #  6
-        self.system_counter     = np.zeros(n, dtype='uint64') #  8, 1/1000 s
-        self.time_first_element = np.zeros(n, dtype='uint64') #  16, 1/1000 s
+        self.system_counter     = np.zeros(n, dtype='float64') #  8, 1/1000 s
+        self.time_first_element = np.zeros(n, dtype='float64') #  16, 1/1000 s
         self.encoder_counts     = np.zeros(n*125, dtype='int16')
         self.padding            = np.zeros(n, dtype='uint16')
         self.crc                = np.zeros(n, dtype='uint32')
@@ -166,15 +166,15 @@ def suvm_bootloader_converter(s):
         bt.apid[i]              = p[4] # 0
         bt.sequence_count[i]    = p[5]
         bt.length[i]            = int.from_bytes(p[6:8],'little')
-        bt.system_counter[i]    = int.from_bytes(p[8:16],'little')
-        bt.gps_pps[i]           = int.from_bytes(p[16:24],'little')
+        bt.system_counter[i]    = float(int.from_bytes(p[8:16],'little')) / 1000.
+        bt.gps_pps[i]           = float(int.from_bytes(p[16:24],'little')) / 1000.
         bt.watchdog_counter[i]  = int.from_bytes(p[24:28],'little')
         bt.version[i]           = int.from_bytes(p[28:32],'little')
         bt.reset_status[i]      = p[32]
         bt.last_cmd_status[i]   = p[33]
         bt.last_cmd_id[i]       = p[34]
         bt.last_cmd_opcode[i]   = p[35]
-        bt.last_cmd_time[i]     = int.from_bytes(p[36:44],'little')
+        bt.last_cmd_time[i]     = float(int.from_bytes(p[36:44],'little')) / 1000.
         bt.cmd_success[i]       = p[44]
         bt.cmd_fail[i]          = p[45]
         bt.flash_last_op[i]     = p[46]
@@ -197,7 +197,7 @@ def suvm_command_converter(s):
         cm.apid[i]              = p[4] # 2
         cm.sequence_count[i]    = p[5]
         cm.length[i]            = int.from_bytes(p[6:8],'little')
-        cm.system_counter[i]    = int.from_bytes(p[8:16],'little')
+        cm.system_counter[i]    = float(int.from_bytes(p[8:16],'little')) / 1000.
         # cm.last_command[i]      = hex(int.from_bytes(p[16:cm.length[i]], 'little'))
         cm.last_command[i]      = p[16:cm.length[i]].hex()
         cm.crc[i]               = int.from_bytes(p[cm.length[i]:cm.length[i]+4], 'big')
@@ -212,8 +212,8 @@ def suvm_encoder_converter(s):
         en.apid[i]              = p[4] # 4
         en.sequence_count[i]    = p[5]
         en.length[i]            = int.from_bytes(p[6:8],'little')
-        en.system_counter[i]    = int.from_bytes(p[8:16],'little')
-        en.time_first_element[i]= int.from_bytes(p[16:24],'little')
+        en.system_counter[i]    = float(int.from_bytes(p[8:16],'little')) / 1000.
+        en.time_first_element[i]= float(int.from_bytes(p[16:24],'little')) / 1000.
         j = i*125
         for z in range(0,250,2):
             en.encoder_counts[int(j+z/2)] = int.from_bytes(p[24+z:24+z+2],'little') - 2**15
@@ -233,15 +233,15 @@ def suvm_general_converter(s):
         gn.apid[i]              = p[4] # 1
         gn.sequence_count[i]    = p[5]
         gn.length[i]            = int.from_bytes(p[6:8],'little')
-        gn.system_counter[i]    = int.from_bytes(p[8:16],'little')
-        gn.gps_pps[i]            = int.from_bytes(p[16:24],'little')
+        gn.system_counter[i]    = float(int.from_bytes(p[8:16],'little'))/1000.
+        gn.gps_pps[i]            = float(int.from_bytes(p[16:24],'little'))/1000.
         gn.watchdog_counter[i]   = int.from_bytes(p[24:28],'little')
         gn.version[i]            = int.from_bytes(p[28:32],'little')
         gn.reset_status[i]       = p[33]
         gn.last_cmd_status[i]    = p[34]
         gn.last_cmd_id[i]        = p[35]
         gn.last_cmd_opcode[i]    = p[36]
-        gn.last_cmd_time[i]      = int.from_bytes(p[36:44],'little')
+        gn.last_cmd_time[i]      = float(int.from_bytes(p[36:44],'little'))/1000.
         gn.cmd_success[i]        = p[44]
         gn.cmd_fail[i]           = p[45]
         gn.flash_last_op[i]      = p[46]

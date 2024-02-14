@@ -36,7 +36,7 @@ class IDC_M0():
     # Input: n -- Number of packets
     def __init__(self,n,xip):
         self.IDC_ID = np.zeros(n, dtype='U4')
-        self.MET    = np.zeros(n, dtype='uint64')
+        self.GPS_time = np.zeros(n, dtype='uint64')
         self.time   = np.zeros(n, dtype='uint64')
         self.dark   = np.zeros(n, dtype='uint64')
         if xip=='TIP':
@@ -71,17 +71,17 @@ class IDC_M0():
         self.HV_OVERRIDE      = np.zeros(n, dtype='ubyte')
         self.SHUTTER_OVERRIDE = np.zeros(n, dtype='ubyte')
         self.V5_OVERRIDE      = np.zeros(n, dtype='ubyte')
-        self.HV_STATUS        = np.zeros(n, dtype='uint16')
+        self.HV_STATUS        = np.zeros(n, dtype='ubyte')
     def __str__(self):
         a = f'Contents for IDC Serial Number: {self.IDC_ID}'
-        c = 'Contains both MET and XIP instrument run time ("time")'
-        t = f'Total packets converted :      {len(self.MET)}'
+        c = 'Contains both GPS time and XIP instrument run time ("time")'
+        t = f'Total packets converted :      {len(self.GPS_time)}'
         return f'{a}\n{c}\n{t}\n\n'
 # 
 class IDC_M1():
     # Input: n -- Number of packets
     def __init__(self,n,xip):
-        self.MET      = np.zeros(10*n, dtype='float')
+        self.GPS_time = np.zeros(10*n, dtype='float')
         self.time     = np.zeros(10*n, dtype='float')
         self.IDC_ID   = ''
         self.dark     = np.zeros(10*n, dtype='uint64')
@@ -98,8 +98,8 @@ class IDC_M1():
             self.VK_chk = np.zeros(n, dtype='uint64')
     def __str__(self):
         a = 'SUVM 10 Hz data Pakcet Contents for {self.IDC_ID}:'
-        c = 'Contains both MET and XIP instrument run time ("time")'
-        t = f'Total packets converted :      {len(self.MET)}'
+        c = 'Contains both GPS_time and XIP instrument run time ("time")'
+        t = f'Total packets converted :      {len(self.GPS_time)}'
         return f'{a}\n{c}\n{t}\n\n'
 # 
 def convert_m0_asc2dec(xip_file, xip):
@@ -173,7 +173,7 @@ def convert_m1_byt2dec(din,xip):
 def convert_m0_hex2dec(m, xip):
     """
     Converts XIP M0 data frames from ASCII HEX to decimal values
-    Expects m as a list of lists, with each element = [MET (long), 'HEX DATA']
+    Expects m as a list of lists, with each element = [GPS_time (long), 'HEX DATA']
     Expects "xip" as either "TIP" or "MIP"
     'HEX DATA' IDC M0 format:
     # 00 ØØ[zz zzzz] ØØ[zz zzzz]<CR>    PMT Dark Counts, PMT Red Counts
@@ -185,7 +185,7 @@ def convert_m0_hex2dec(m, xip):
     """
     mout = IDC_M0(len(m), xip)
     for i, p in enumerate(m):
-        mout.MET[i]    = p[0]
+        mout.GPS_time[i] = p[0]
         mout.time[i]   = int(p[1][74:76] + p[1][77:81], 16)
         mout.dark[i]   = int(p[1][5:7]   + p[1][8:12], 16)
         if xip=='TIP':
@@ -236,7 +236,7 @@ def IDC_DN_to_dec(DN):
 def convert_m1_hex2dec(m, xip):
     """
     Converts XIP 10 Hz M1 data frame from ASCII HEX to decimal values
-    Expects m as a list of lists, with each element = [MET (long), 'HEX DATA']
+    Expects m as a list of lists, with each element = [GPS_time (long), 'HEX DATA']
     Expects "xip" as either "TIP" or "MIP"
     'HEX DATA' format is:
     # IDC M1
@@ -257,7 +257,7 @@ def convert_m1_hex2dec(m, xip):
             mout.time[i*10:(i*10+10)] = [int(p[1][179:183],16) + k/10 for k in range(10)]
         except ValueError:
             print(f'Skipping M1 Time packet # {i}')
-        mout.MET[i*10:(i*10+10)]  = [p[0] + k/10 for k in range(10)]
+        mout.GPS_time[i*10:(i*10+10)]  = [p[0] + k/10 for k in range(10)]
         dk = [p[1][8:12],   p[1][13:17],  p[1][18:22],  p[1][26:30],  p[1][31:35],
               p[1][36:40],  p[1][41:45],  p[1][49:53],  p[1][54:58],  p[1][59:63]]
         rd = [p[1][64:68],  p[1][72:76],  p[1][77:81],  p[1][82:86],  p[1][87:91],
