@@ -23,6 +23,7 @@ import ECLIPSE_iib_converter as eic
 import XIP_packet_converter as xpc
 import SUVM_packet_converter as spc
 import STPH9_usgnc_converter as h9gnc
+import astropy.time as apt
 
 def ECL_global_attributes(ncfile):
     ncfile.title = 'ECLIPSE'
@@ -285,7 +286,16 @@ def ECL_L0_analog(fname, ebyte):
     print(' Analog File Complete: ' + outname)
     print('')
     
-    
+def generate_aux_logfile(aux, auxname):
+    print(f'Generating AUX logfile: {auxname}')
+    with open(auxname, 'w') as fp:
+        fp.write('Time                    Command\n')
+        for i, c in enumerate(aux):
+            iso_t = apt.Time(c[0], format='gps')
+            time = iso_t.fits
+            command = c[1].decode('utf-8')
+            fp.write(f'{time} {command[0:4]}\n')
+    return 
 
 def ECL_L0_ALS(fname, ebyte):
     (fpath, fbase_ext) = path.split(fname)
@@ -293,6 +303,11 @@ def ECL_L0_ALS(fname, ebyte):
     # 
     fnew_ext = f"{fbase}_ECLIPSE_L0_ALS.nc"
     outname = path.join(fpath, 'L0_ALS', fnew_ext)
+    #
+    if len(ebyte.tip1_aux) > 0:
+        generate_aux_logfile(ebyte.tip1_aux, path.join(fpath,'L0_ALS','ALS_TIP_aux_log.txt'))
+    if len(ebyte.mip3_aux) > 0:
+        generate_aux_logfile(ebyte.mip3_aux, path.join(fpath,'L0_ALS','ALS_MIP_aux_log.txt'))
     # 
     print(f'Starting to generate the file ... \n ... {outname}\n')
     # 
@@ -620,11 +635,11 @@ def ECL_L0_ALS(fname, ebyte):
     """
     SUVM Variables
     """
-    ATIPSVM_TIME = ncfile.createVariable('TIP_SUVM_TIME', np.uint32, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_TIME = ncfile.createVariable('TIP_SUVM_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_TIME.long_name = 'TIP_Scan_Mirror_Run_Time'
     ATIPSVM_TIME.units = 'seconds'
     ATIPSVM_TIME[:] = s2_gen.time
-    AMIPSVM_TIME = ncfile.createVariable('MIP_SUVM_TIME', np.uint32, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_TIME = ncfile.createVariable('MIP_SUVM_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_TIME.long_name = 'MIP_Scan_Mirror_Run_Time'
     AMIPSVM_TIME.units = 'seconds'
     AMIPSVM_TIME[:] = s4_gen.time
@@ -648,11 +663,11 @@ def ECL_L0_ALS(fname, ebyte):
     ATIPSVM_GPSPPS = ncfile.createVariable('TIP_SUVM_GPS_PPS', np.float64, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_GPSPPS.long_name = 'TIP_Scan_Mirror_GPS_PPS'
     ATIPSVM_GPSPPS.units = 'seconds'
-    ATIPSVM_GPSPPS[:] = s2_gen.system_counter
+    ATIPSVM_GPSPPS[:] = s2_gen.gps_pps
     AMIPSVM_GPSPPS = ncfile.createVariable('MIP_SUVM_GPS_PPS', np.float64, ('MIP_SUVM_TIME',), zlib=True)
     AMIPSVM_GPSPPS.long_name = 'MIP_Scan_Mirror_GPS_PPS'
     AMIPSVM_GPSPPS.units = 'seconds'
-    AMIPSVM_GPSPPS[:] = s4_gen.system_counter
+    AMIPSVM_GPSPPS[:] = s4_gen.gps_pps
     # 
     ATIPSVM_LASTCMD_STAT = ncfile.createVariable('TIP_SUVM_LAST_COMMAND_STATUS', np.ubyte, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_LASTCMD_STAT.long_name = 'TIP_Scan_Mirror_Last_Command_Status'
@@ -881,7 +896,12 @@ def ECL_L0_CTS(fname, ebyte):
     
     fnew_ext = f"{fbase}_ECLIPSE_L0_CTS.nc"
     outname = path.join(fpath, 'L0_CTS', fnew_ext)
-    
+    # 
+    if len(ebyte.tip5_aux) > 0:
+        generate_aux_logfile(ebyte.tip5_aux, path.join(fpath,'L0_CTS','CTS_TIP_aux_log.txt'))
+    if len(ebyte.mip7_aux) > 0:
+        generate_aux_logfile(ebyte.mip7_aux, path.join(fpath,'L0_CTS','CTS_MIP_aux_log.txt'))
+    # 
     print('Starting to generate the file ... ')
     print(' ... ' + outname)
     print('')
@@ -1204,11 +1224,11 @@ def ECL_L0_CTS(fname, ebyte):
     SUVM Variables
     """
     #!!!
-    CTIPSVM_TIME = ncfile.createVariable('TIP_SUVM_TIME', np.uint32, ('TIP_SUVM_TIME',), zlib=True)
+    CTIPSVM_TIME = ncfile.createVariable('TIP_SUVM_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
     CTIPSVM_TIME.long_name = 'TIP_Scan_Mirror_Run_Time'
     CTIPSVM_TIME.units = 'seconds'
     CTIPSVM_TIME[:] = s6_gen.time
-    CMIPSVM_TIME = ncfile.createVariable('MIP_SUVM_TIME', np.uint32, ('MIP_SUVM_TIME',), zlib=True)
+    CMIPSVM_TIME = ncfile.createVariable('MIP_SUVM_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
     CMIPSVM_TIME.long_name = 'MIP_Scan_Mirror_Run_Time'
     CMIPSVM_TIME.units = 'seconds'
     CMIPSVM_TIME[:] = s8_gen.time
@@ -1232,11 +1252,11 @@ def ECL_L0_CTS(fname, ebyte):
     CTIPSVM_GPSPPS = ncfile.createVariable('TIP_SUVM_GPS_PPS', np.float64, ('TIP_SUVM_TIME',), zlib=True)
     CTIPSVM_GPSPPS.long_name = 'TIP_Scan_Mirror_GPS_PPS'
     CTIPSVM_GPSPPS.units = 'seconds'
-    CTIPSVM_GPSPPS[:] = s6_gen.system_counter
+    CTIPSVM_GPSPPS[:] = s6_gen.gps_pps
     CMIPSVM_GPSPPS = ncfile.createVariable('MIP_SUVM_GPS_PPS', np.float64, ('MIP_SUVM_TIME',), zlib=True)
     CMIPSVM_GPSPPS.long_name = 'MIP_Scan_Mirror_GPS_PPS'
     CMIPSVM_GPSPPS.units = 'seconds'
-    CMIPSVM_GPSPPS[:] = s8_gen.system_counter
+    CMIPSVM_GPSPPS[:] = s8_gen.gps_pps
     # 
     CTIPSVM_LASTCMD_STAT = ncfile.createVariable('TIP_SUVM_LAST_COMMAND_STATUS', np.ubyte, ('TIP_SUVM_TIME',), zlib=True)
     CTIPSVM_LASTCMD_STAT.long_name = 'TIP_Scan_Mirror_Last_Command_Status'
@@ -1529,8 +1549,8 @@ def ECL_L0_ISS(fname, iss_name, iss_byte):
     v23[:] = iss.usgnc_sec
     
     v24 = ncfile.createVariable('USGNC_POSN_INERT', 'f4', ('nRec','nVec'), zlib=True)
-    v24.units     = 'Seconds'
-    v24.long_name = 'U.S. Guidance, Navigation and Control Time'
+    v24.units     = 'km'
+    v24.long_name = 'U.S. Guidance, Navigation and Control Position (ECI)'
     v24[:] = iss.posn_inert
     v25 = ncfile.createVariable('Radius', 'f8', ('nRec',), zlib=True)
     v25.units     = 'km'
@@ -1579,30 +1599,31 @@ def ECL_L0_ISS(fname, iss_name, iss_byte):
     # print(iss.quat_ctrs[0:10][:])
     # 
 def main():
-    YYYY = 2023
-    FDIR = 2305
-    for DOY in range(140,141):
+    YYYY = 2024
+    FDIR = 2401
+    for DOY in range(20, 21):
         tic = time.time()
-        if DOY < 10: sDOY = f'00{DOY}'
-        if DOY < 100 and DOY >= 10: sDOY = f'0{DOY}'
-        if DOY >= 100: sDOY = f'{DOY}'
-        ecl_name = f'C:/data/ECLIPSE/flt/NRL_1729_{YYYY}{sDOY}.out'
-        iss_name = f'C:/data/STPH9/flt/{FDIR}/NRL_674f6_{YYYY}{sDOY}'
+        """
+        Change f-string to f'{DOY:03}' to make a 3 char string with 0-padding
+        """
+        ecl_load = f'C:/data/ECLIPSE/flt/RAW_OUT/{FDIR}/NRL_1729_{YYYY}{DOY:03}.out'
+        ecl_name = f'C:/data/ECLIPSE/flt/NRL_1729_{YYYY}{DOY:03}.out'
+        iss_name = f'C:/data/STPH9/flt/{FDIR}/NRL_674f6_{YYYY}{DOY:03}'
         # Load / parse the binary data
-        ecl_ccsds_byte = ehc.load_eclipse_bytes_from_ccsds(ecl_name)
         iss_byte = ehc.load_iss_hs_bytes_from_ccsds(iss_name)
+        ecl_ccsds_byte = ehc.load_eclipse_bytes_from_ccsds(ecl_load)
         ebyte = etb.breakout_hrt_packet(ecl_ccsds_byte)
         # 
-        print(f'\n Processing {ecl_name} ...')
-        print(f' Processing {iss_name} ...\n')
-        print(f'{ebyte}\n')
+        print(f'\n Loading {ecl_name} ...\n Loading {iss_name} ...\n{ebyte}\n')
+        # print(f'')
+        # print(f'')
         # Convert the binary data
         ECL_L0_analog(ecl_name, ebyte)
         ECL_L0_CTS(ecl_name, ebyte)
         ECL_L0_ALS(ecl_name, ebyte)
         ECL_L0_ISS(ecl_name, iss_name, iss_byte)
         toc = time.time()
-        print(f' Completed for DOY = {DOY} in {toc-tic} seconds\n')
+        print(f' Completed for {DOY = } in {(toc-tic):.2f} seconds\n')
     
 if __name__ == "__main__":
     print(f"==== {__file__} ====")

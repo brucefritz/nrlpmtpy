@@ -114,10 +114,10 @@ def sun2000(yr, mo, dy, ut, RADIANS=False, AU=False, GMSTONLY=False):
     AU_CONSTANT = 149597870.66
     RAD2DEG = 180.0 / np.pi
     DEG2RAD = np.pi / 180.0
-    
+    # 
     # Parse input parameters
-    np = max(len(yr), len(mo), len(dy), len(ut))
-    if np < 4 or GMSTONLY:
+    nparm = max(len(yr), len(mo), len(dy), len(ut))
+    if nparm < 4 or GMSTONLY:
         print("From Year, Month, and Day compute floating point Julian Day number.")
         print("jd = fjulian(y, m, d)")
         print("yr = Year (like 1987).")
@@ -144,13 +144,20 @@ def sun2000(yr, mo, dy, ut, RADIANS=False, AU=False, GMSTONLY=False):
     ut = np.double(np.atleast_1d(ut))
 
     # Useful constants
-    dpi = DPI
+    dpi = np.pi
     au = AU_CONSTANT
     rad2deg = RAD2DEG
     deg2rad = DEG2RAD
 
     # Convert UT to TDT
-    tdt_yr = np.array([1900. + i * 10 for i in range(13)])
+    temp_list = [00,10,20,30,40,45,50,55,60,65,
+                70,71,72,73,74,75,76,77,78,79,
+                80,81,82,83,84,85,86,87,88,89,
+                90,91,92,93,94,95,96,97,98,99,
+                100,101,102,103,104,105,106,107,108,109,
+                110,111,112,113,114,115,116,117,118,119,
+                120,121,122,123,124]
+    tdt_yr = np.array([1900. + i for i in temp_list])
     tdt_adj = np.array([-2.72, 10.46, 21.16, 24.02, 24.33, 26.77, 29.15, 31.07, 33.15, 35.73,
                         40.18, 41.17, 42.23, 43.37, 44.49, 45.48, 46.46, 47.52, 48.53, 49.59,
                         50.54, 51.38, 52.17, 52.96, 53.79, 54.34, 54.87, 55.32, 55.82, 56.30,
@@ -158,10 +165,14 @@ def sun2000(yr, mo, dy, ut, RADIANS=False, AU=False, GMSTONLY=False):
                         63.83, 64.09, 64.30, 64.47, 64.57, 64.62, 64.85, 65.15, 65.46, 65.78,
                         66.07, 66.32, 66.60, 67.20, 67.44, 67.68, 68.20, 68.63, 69.00, 69.32,
                         69.36, 69.36, 70.91, 71.49, 72])
-    adj = intrpl(tdt_yr, tdt_adj, yr * np.ones(np.shape(tdt_yr)))
+    
+    # func_yr = interp1d(tdt_yr, tdt_adj, kind='linear', fill_value="extrapolate")
+    # return func_yr(xi)
+
+    adj = intrpl(tdt_yr, tdt_adj, yr * np.ones(np.shape(yr)))
     tdt = ut + adj / 3600.0
     jd = fjulian(yr, mo, dy)
-    mjd = fjulian(yr, mo, dy, MJD=True)
+    mjd = fjulian(yr, mo, dy, mjd=True)
 
     # Julian centuries from 1900.0 and 2000.0
     t1900 = (jd - 2415020.0) / 36525.0
@@ -225,14 +236,13 @@ def sun2000(yr, mo, dy, ut, RADIANS=False, AU=False, GMSTONLY=False):
     lambda_app /= 3600.0
 
     # Calculate GMST, required for sub-solar latitude
-    # Equation from Astronomical Almanac, related to UT
-    # converted to degrees
+    # Equation from Astronomical Almanac, related to UT, converted to degrees
     t = t2000 + ut / 24.0 / 36525.0
     gmst = ((100.4606183688 + ((36000.7700536083 * t) % 360.0) +
              15.0 * ut +
              0.0038793333 * t ** 2 -
              2.5833333e-8 * t ** 3) + 720.0) % 360.0
-
+    
     if GMSTONLY:
         return gmst / 15.0
 
@@ -267,13 +277,13 @@ def sun2000(yr, mo, dy, ut, RADIANS=False, AU=False, GMSTONLY=False):
     y_gei = y_ecl * np.cos(oblt * deg2rad) - z_ecl * np.sin(oblt * deg2rad)
     z_gei = y_ecl * np.sin(oblt * deg2rad) + z_ecl * np.cos(oblt * deg2rad)
 
-    # Using GMST and ecliptic longitude, estimate equatorial longitude,
-    # calculate sub-solar longitude on Earth. Need to use apparent
-    # solar position!
+    # Using GMST and ecliptic long., estimate equatorial long., calculate
+    # sub-solar long. on Earth. Need to use apparent solar position!
     long_equ = np.degrees(np.arctan2(np.sin(lambda_app * deg2rad) * np.cos(oblt * deg2rad),
                                      np.cos(lambda_app * deg2rad)))  # in degrees
     lat_equ = np.degrees(np.arcsin(np.sin(lambda_app * deg2rad) * np.sin(oblt * deg2rad)))  # in degrees
-    sslon = (long_equ - GMST + 540) % 360 - 180  # in degrees
+    # sslon = [((x - y + 540.) % 360) - 180 for x,y in zip(long_equ, gmst)]
+    sslon = (long_equ - gmst + 540) % 360 - 180  # in degrees
     sslat = geocgeod(lat_equ)  # assuming geocgeod is a defined function
 
     # Transform ecliptic latitude and longitude of mean date to J2000
@@ -281,8 +291,8 @@ def sun2000(yr, mo, dy, ut, RADIANS=False, AU=False, GMSTONLY=False):
     a = 1.396971 * t2000p + 0.0003086 * t2000p**2
     b = 0.013056 * t2000p - 0.0000092 * t2000p**2
     cp = 5.12362 - 1.155358 * t2000p - 0.0001964 * t2000p**2
-    beta0 = beta - b * np.sin((lambda_ + cp) * deg2rad)
-    lambda0 = lambda_ - a + b * np.cos((lambda_ + cp) * deg2rad) * np.tan(beta0 * deg2rad)
+    beta0 = beta - b * np.sin((lambda_sun + cp) * deg2rad)
+    lambda0 = lambda_sun - a + b * np.cos((lambda_sun + cp) * deg2rad) * np.tan(beta0 * deg2rad)
 
     # Cartesian coordinates in ecliptic plane: J2000
     x_ecl2000 = r_sun_au * np.cos(lambda0 * deg2rad) * np.cos(beta0 * deg2rad)
@@ -290,6 +300,7 @@ def sun2000(yr, mo, dy, ut, RADIANS=False, AU=False, GMSTONLY=False):
     z_ecl2000 = r_sun_au * np.sin(beta0 * deg2rad)
 
     # Transformation Matrix to GEI 2000
+    obl2000 = 23.439291
     x_gei2000 = x_ecl2000
     y_gei2000 = y_ecl2000 * np.cos(obl2000 * deg2rad) - z_ecl2000 * np.sin(obl2000 * deg2rad)
     z_gei2000 = y_ecl2000 * np.sin(obl2000 * deg2rad) + z_ecl2000 * np.cos(obl2000 * deg2rad)
@@ -305,99 +316,104 @@ def sun2000(yr, mo, dy, ut, RADIANS=False, AU=False, GMSTONLY=False):
     z_gei_app = y_ecl_app * np.sin(oblt * deg2rad) + z_ecl_app * np.cos(oblt * deg2rad)
 
     # Prepare output
-    d2r = deg2rad if radian else 1.0
-    r2d = 1 / deg2rad if radian else 1.0
-    a2k = 1.0 if not aufl else au
+    # d2r = deg2rad if radian else 1.0
+    # r2d = 1 / deg2rad if radian else 1.0
+    # a2k = 1.0 if not aufl else au
 
-    out = {  ### this needs major expansion
-        'x_gei': [x_gei, y_gei, z_gei],
-        'sslon': sslon,
-        'sslat': sslat,
-        'x_gei2000': [x_gei2000, y_gei2000, z_gei2000],
-        'x_gei_app': [x_gei_app, y_gei_app, z_gei_app],
+    out = {
+        'JD': jd,
+        'year': yr,
+        'month': mo,
+        'day': dy,
+        'UT_hrs': ut,
+        'tdt_hrs': tdt,
+        'gmst_hrs': gmst/15.0,
+        'sslon_geo': sslon,   # * d2r
+        'sslat_geo': sslat,   # * d2r
+        'ra_app': ra,   # * r2d
+        'dec_app':dec,  # * r2d
+        'ecl_lon':lambda_sun,  # * d2r
+        'ecl_lat':beta,    # * d2r
+        'x_gei2000': x_gei2000, # * a2k
+        'y_gei2000': y_gei2000, # * a2k
+        'z_gei2000': z_gei2000, # * a2k
+        'x_gei_app': [x_gei_app, y_gei_app, z_gei_app], # * a2k
+        'r_sun': r_sun_au   # * a2k
     }
-
+    
     return out
 
 
 
 
+# def regfal(funcname, a_in, b_in, tol=1e-5, nmax=200):
+#     np = n_params(0)  # This should be fixable
+#     if np < 5:
+#         nmax = 200
+#     if np < 4:
+#         tol = 1e-5
+#     if np < 3:
+#         print("REGFAL error: too few parameters.")
+#         return 0
+
+#     a = min([a_in, b_in])
+#     b = max([a_in, b_in])
+#     if a == b:
+#         print("REGFAL error: zero width domain.")
+#         return 0
+
+#     fa = call_function(funcname, a) ### These will require bespoke calls
+#     if fa == 0:
+#         return a
+#     fb = call_function(funcname, b)
+#     if fb == 0:
+#         return b
+
+#     # Initialize previous x-value to a bogus value
+#     xl = 1e38
+
+#     # Iterate toward a solution
+#     for i in range(nmax):
+#         xn = (a * fb - b * fa) / (fb - fa)
+#         fn = call_function(funcname, xn)
+
+#         if abs(xl - xn) <= tol:
+#             return xn
+#         else:
+#             xl = xn
+
+#         if fa * fn <= 0.:
+#             b = xn
+#             fb = fn
+#         else:
+#             a = xn
+#             fa = fn
+
+#     print("REGFAL warning: Maximum number of iterations completed.")
+#     return xn
 
 
+# def sg_tphfunc(theta):
+#     tanpthpar = {'b': 0.0, 'm': 0.0, 'ae': 0.0, 'be': 0.0, 'zmin': 0.0}
+#     b, m, ae, be, zmin = tanpthpar['b'], tanpthpar['m'], tanpthpar['ae'], tanpthpar['be'], tanpthpar['zmin']
 
+#     c = np.cos(theta)
+#     s = np.sin(theta)
+#     psi = np.arctan2(be * s, ae * c)
+#     re = np.sqrt(be**2 + (ae**2 - be**2) * np.sin(psi)**2)
 
+#     return b - (re + zmin) * (s - m * c)
 
+# def sg_tphfunc2(theta):
+#     tanpthpar = {'b': 0.0, 'm': 0.0, 'ae': 0.0, 'be': 0.0, 'zmin': 0.0}
+#     b, m, ae, be, zmin = tanpthpar['b'], tanpthpar['m'], tanpthpar['ae'], tanpthpar['be'], tanpthpar['zmin']
 
+#     c = np.cos(theta)
+#     s = np.sin(theta)
+#     psi = np.arctan2(be * s, ae * c)
+#     re = np.sqrt(be**2 + (ae**2 - be**2) * np.sin(psi)**2)
 
-
-def regfal(funcname, a_in, b_in, tol=1e-5, nmax=200):
-    np = n_params(0)  # This should be fixable
-    if np < 5:
-        nmax = 200
-    if np < 4:
-        tol = 1e-5
-    if np < 3:
-        print("REGFAL error: too few parameters.")
-        return 0
-
-    a = min([a_in, b_in])
-    b = max([a_in, b_in])
-    if a == b:
-        print("REGFAL error: zero width domain.")
-        return 0
-
-    fa = call_function(funcname, a) ### These will require bespoke calls
-    if fa == 0:
-        return a
-    fb = call_function(funcname, b)
-    if fb == 0:
-        return b
-
-    # Initialize previous x-value to a bogus value
-    xl = 1e38
-
-    # Iterate toward a solution
-    for i in range(nmax):
-        xn = (a * fb - b * fa) / (fb - fa)
-        fn = call_function(funcname, xn)
-
-        if abs(xl - xn) <= tol:
-            return xn
-        else:
-            xl = xn
-
-        if fa * fn <= 0.:
-            b = xn
-            fb = fn
-        else:
-            a = xn
-            fa = fn
-
-    print("REGFAL warning: Maximum number of iterations completed.")
-    return xn
-
-
-def sg_tphfunc(theta):
-    tanpthpar = {'b': 0.0, 'm': 0.0, 'ae': 0.0, 'be': 0.0, 'zmin': 0.0}
-    b, m, ae, be, zmin = tanpthpar['b'], tanpthpar['m'], tanpthpar['ae'], tanpthpar['be'], tanpthpar['zmin']
-
-    c = np.cos(theta)
-    s = np.sin(theta)
-    psi = np.arctan2(be * s, ae * c)
-    re = np.sqrt(be**2 + (ae**2 - be**2) * np.sin(psi)**2)
-
-    return b - (re + zmin) * (s - m * c)
-
-def sg_tphfunc2(theta):
-    tanpthpar = {'b': 0.0, 'm': 0.0, 'ae': 0.0, 'be': 0.0, 'zmin': 0.0}
-    b, m, ae, be, zmin = tanpthpar['b'], tanpthpar['m'], tanpthpar['ae'], tanpthpar['be'], tanpthpar['zmin']
-
-    c = np.cos(theta)
-    s = np.sin(theta)
-    psi = np.arctan2(be * s, ae * c)
-    re = np.sqrt(be**2 + (ae**2 - be**2) * np.sin(psi)**2)
-
-    return b - (re + zmin) * c
+#     return b - (re + zmin) * c
 
 
 
@@ -451,7 +467,8 @@ def geocgeod(geoc_lat_deg, r_geoc=None, almanac=False):
 
     a_e = refgeoid(0)
     b_e = refgeoid(90)
-
+    flag=0 
+    
     # If only one parameter, assume geocentric lat is
     # given for the earth's surface (reference geoid).
     if r_geoc is None:
@@ -461,7 +478,7 @@ def geocgeod(geoc_lat_deg, r_geoc=None, almanac=False):
         flag = 1
 
     # Choose iteration or simple calculation method
-    if flag or almanac:
+    if flag > 0 or almanac is True:
         f = (1.0 - b_e / a_e)
         e2 = 2 * f - f**2
         r = np.cos(th) * r_geoc
