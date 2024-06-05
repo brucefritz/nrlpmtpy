@@ -9,19 +9,19 @@ import os
 import sys
 import time
 import netCDF4
-import calendar as cdr
+# import calendar as cdr
 import numpy as np
 import pandas as pd
-from astropy.time import Time
+# from astropy.time import Time
 import astropy.time as apt
 from scipy.interpolate import InterpolatedUnivariateSpline as IUS
 import csv
-import NRL_orbit_geometry as orbgeom
+# import NRL_orbit_geometry as orbgeom
 import NRL_quaternion_calculator as quatcalc
 import NRL_viewgeom as nvg
 
-from ECL_plot_nc1 import tip_test_plot
-from ECL_plot_nc1 import mip_test_plot
+from ECL_plot_nc1 import xip_single_orbit_plot
+from ECL_generate_L1A_ncfile import generate_L1A_ncfile
 
 from matplotlib import pyplot as plt
 
@@ -41,54 +41,58 @@ def load_L0_data(iss_file, ecl_file):
         print(f'File does not exist:   {ecl_file}\n')
         sys.exit()
     """
-    TIP 1 Hz
+    TIP DATA
     """
+    TIP_FLAG = 0
     try:
+        # 1Hz
         dft0['TIP_GPS'] = fe.variables['TIP_M0_GPS_TIME'][:]
         dft0['UV_CTS']  = fe.variables['TIP_M0_UV'][:]
         dft0['RD_CTS']  = fe.variables['TIP_M0_RED'][:]
         dft0['DK_CTS']  = fe.variables['TIP_M0_DARK'][:]
-        dft0['HVstatus'] = fe.variables['TIP_M0_HV_Status'][:]
+        dft0['HV_mon']  = fe.variables['TIP_M0_HV_mon'][:]
+        # 10Hz
+        dft1['TIP_GPS'] = fe.variables['TIP_M1_GPS_TIME'][:]
+        dft1['UV_CTS']  = fe.variables['TIP_M1_UV'][:]
+        dft1['RD_CTS']  = fe.variables['TIP_M1_RED'][:]
+        dft1['DK_CTS']  = fe.variables['TIP_M1_DARK'][:]
+        # SUVM
+        dfts['SUVM_HRT_GPS'] = fe.variables['TIP_SUVM_TIME'][:]
+        dfts['SUVM_SYSTIME'] = fe.variables['TIP_SUVM_System_Counter'][:]
+        dfts['SUVM_GPS_PPS'] = fe.variables['TIP_SUVM_GPS_PPS'][:]
+        dfts['SUVM_ANGLE']   = fe.variables['TIP_SUVM_ENCODER_ANGLE'][:]
     except KeyError:
-        print(f'No TIP data at all in {ecl_file}, exiting program')
-        # sys.exit()
+        print(f'No TIP data at all in {ecl_file}')
+        TIP_FLAG = 1
+    """
+    MIP DATA
+    """
+    MIP_FLAG = 0
+    try:
+        # 1Hz
+        dfm0['MIP_GPS'] = fe.variables['MIP_M0_GPS_TIME'][:]
+        dfm0['MG_CTS']  = fe.variables['MIP_M0_MG'][:]
+        dfm0['VK_CTS']  = fe.variables['MIP_M0_VK'][:]
+        dfm0['DK_CTS']  = fe.variables['MIP_M0_DARK'][:]
+        dfm0['HV_mon']  = fe.variables['MIP_M0_HV_mon'][:]
+        # 10Hz
+        dfm1['MIP_GPS'] = fe.variables['MIP_M1_GPS_TIME'][:]
+        dfm1['MG_CTS']  = fe.variables['MIP_M1_MG'][:]
+        dfm1['VK_CTS']  = fe.variables['MIP_M1_VK'][:]
+        dfm1['DK_CTS']  = fe.variables['MIP_M1_DARK'][:]
+        # SUVM
+        dfms['SUVM_HRT_GPS'] = fe.variables['MIP_SUVM_TIME'][:]
+        dfms['SUVM_SYSTIME'] = fe.variables['MIP_SUVM_System_Counter'][:]
+        dfms['SUVM_GPS_PPS'] = fe.variables['MIP_SUVM_GPS_PPS'][:]
+        dfms['SUVM_ANGLE']   = fe.variables['MIP_SUVM_ENCODER_ANGLE'][:]
+    except KeyError:
+        print(f'No MIP data at all in {ecl_file}')
+        MIP_FLAG = 1
+    
+    if (TIP_FLAG > 0) & (MIP_FLAG > 0):
+        print(f'No XIP data at all in {ecl_file}, exiting program')
+        fe.close()
         return dfi, dft0, dft1, dfm0, dfm1, dfts, dfms
-    """
-    MIP 1 Hz
-    """
-    dfm0['MIP_GPS'] = fe.variables['MIP_M0_GPS_TIME'][:]
-    dfm0['MG_CTS']  = fe.variables['MIP_M0_MG'][:]
-    dfm0['VK_CTS']  = fe.variables['MIP_M0_VK'][:]
-    dfm0['DK_CTS']  = fe.variables['MIP_M0_DARK'][:]
-    dfm0['HVstatus'] = fe.variables['MIP_M0_HV_Status'][:]
-    """
-    TIP 10 Hz
-    """
-    dft1['TIP_GPS'] = fe.variables['TIP_M1_GPS_TIME'][:]
-    dft1['UV_CTS']  = fe.variables['TIP_M1_UV'][:]
-    dft1['RD_CTS']  = fe.variables['TIP_M1_RED'][:]
-    dft1['DK_CTS']  = fe.variables['TIP_M1_DARK'][:]
-    """
-    MIP 10 Hz
-    """
-    dfm1['MIP_GPS'] = fe.variables['MIP_M1_GPS_TIME'][:]
-    dfm1['MG_CTS']  = fe.variables['MIP_M1_MG'][:]
-    dfm1['VK_CTS']  = fe.variables['MIP_M1_VK'][:]
-    dfm1['DK_CTS']  = fe.variables['MIP_M1_DARK'][:]
-    """
-    TIP SUVM Mirror Angle
-    """
-    dfts['SUVM_HRT_GPS'] = fe.variables['TIP_SUVM_TIME'][:]
-    dfts['SUVM_SYSTIME'] = fe.variables['TIP_SUVM_System_Counter'][:]
-    dfts['SUVM_GPS_PPS'] = fe.variables['TIP_SUVM_GPS_PPS'][:]
-    dfts['SUVM_ANGLE']   = fe.variables['TIP_SUVM_ENCODER_ANGLE'][:]
-    """
-    MIP SUVM Mirror Angle
-    """
-    dfms['SUVM_HRT_GPS'] = fe.variables['MIP_SUVM_TIME'][:]
-    dfms['SUVM_SYSTIME'] = fe.variables['MIP_SUVM_System_Counter'][:]
-    dfms['SUVM_GPS_PPS'] = fe.variables['MIP_SUVM_GPS_PPS'][:]
-    dfms['SUVM_ANGLE']   = fe.variables['MIP_SUVM_ENCODER_ANGLE'][:]
     # 
     fe.close()
     # 
@@ -115,8 +119,7 @@ def load_L0_data(iss_file, ecl_file):
     fi.close()
     # 
     return dfi, dft0, dft1, dfm0, dfm1, dfts, dfms
-
-
+    
 def load_orbit_data(iss_file, ecl_file, t1, t2):
     """
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -170,7 +173,7 @@ def load_orbit_data(iss_file, ecl_file, t1, t2):
     
     if abs(int(doy_t2)-int(doy_t1)) > 0:
         ### Orbit spans multiple UT days
-        print(f'\n Orbit crosses between DOYs, loading second dataset...\n')
+        print('\n Orbit crosses between DOYs, loading second dataset...\n')
         iso_t = apt.Time(int(t2), format='gps')
         NEXT_DIR = f"{iso_t.utc.strftime('%Y')[2:4]}{iso_t.utc.strftime('%m')}"
         NEXT_DOY = iso_t.utc.strftime('%j')
@@ -208,12 +211,11 @@ def load_orbit_data(iss_file, ecl_file, t1, t2):
     except KeyError:
         print(f'No data for this orbit in {ecl_file}, exiting program\n')
         return dft_1Hz, dft_10Hz, dfm_1Hz, dfm_10Hz
-        # sys.exit()
+        #
     if tip_duration < 0.25 or mip_duration < 0.25:
         print('Insufficient XIP data to proceed')
         return dft_1Hz, dft_10Hz, dfm_1Hz, dfm_10Hz
-        # sys.exit()
-    
+        #
     print(f"TIP TLM ... {tseg0['TIP_GPS'][0]} ... {tseg0['TIP_GPS'][len(tseg0)-1]} --> {tip_duration:4.4} min")
     print(f"MIP TLM ... {mseg0['MIP_GPS'][0]} ... {mseg0['MIP_GPS'][len(mseg0)-1]} --> {mip_duration:4.4} min\n")
     
@@ -223,27 +225,22 @@ def load_orbit_data(iss_file, ecl_file, t1, t2):
     mseg1.reset_index(inplace=True, drop=True)
     
     # dfts.loc[dfts.SUVM_SYSTIME < 400_000, 'SUVM_SYSTIME'] += dfts['SUVM_SYSTIME'][1]
-    dfts = dfts[dfts.SUVM_SYSTIME < 400_000]
-    dfts.reset_index(inplace=True, drop=True)
-    dfms = dfms[dfms.SUVM_SYSTIME < 400_000]
-    dfms.reset_index(inplace=True, drop=True)
-    plt.plot(dfms['SUVM_SYSTIME'])
-    print(tseg0['TIP_GPS'][0])
-    print(max(tseg0['TIP_GPS']))
+    # dfts = dfts[dfts.SUVM_SYSTIME < 400_000]
+    # dfts.reset_index(inplace=True, drop=True)
+    # dfms = dfms[dfms.SUVM_SYSTIME < 400_000]
+    # dfms.reset_index(inplace=True, drop=True)
+    # plt.plot(dfms['SUVM_SYSTIME'])
+    # print(tseg0['TIP_GPS'][0])
+    # print(max(tseg0['TIP_GPS']))
     
     dfts['TSUVM_GPS_DEC']  = dfts['SUVM_SYSTIME'] - int(dfts['SUVM_SYSTIME'][0]) + dfts['SUVM_HRT_GPS'][0]
     dfms['MSUVM_GPS_DEC']  = dfms['SUVM_SYSTIME'] - int(dfms['SUVM_SYSTIME'][0]) + dfms['SUVM_HRT_GPS'][0]
-    print(dfts['TSUVM_GPS_DEC'])
-    
-    # print(max(dfts['SUVM_SYSTIME']))
-    
-    # tsegs = dfts[(dfts['SUVM_HRT_GPS'] >= tseg0['TIP_GPS'][0]) & (dfts['SUVM_HRT_GPS'] <= max(tseg0['TIP_GPS']))]
-    # msegs = dfms[(dfms['SUVM_HRT_GPS'] >= mseg0['MIP_GPS'][0]) & (dfms['SUVM_HRT_GPS'] <= max(mseg0['MIP_GPS']))]
+    # 
     tsegs = dfts[(dfts['TSUVM_GPS_DEC'] >= tseg0['TIP_GPS'][0]) & (dfts['TSUVM_GPS_DEC'] <= max(tseg0['TIP_GPS']))]
     msegs = dfms[(dfms['MSUVM_GPS_DEC'] >= mseg0['MIP_GPS'][0]) & (dfms['MSUVM_GPS_DEC'] <= max(mseg0['MIP_GPS']))]
     tsegs.reset_index(inplace=True, drop=True)
     msegs.reset_index(inplace=True, drop=True)
-    
+    # 
     segi = dfi[(dfi['ISS_GPS'] >= tseg0['TIP_GPS'][0]) & (dfi['ISS_GPS'] <= max(tseg0['TIP_GPS']))]
     segi.reset_index(inplace=True, drop=True)
     # 
@@ -251,11 +248,13 @@ def load_orbit_data(iss_file, ecl_file, t1, t2):
     dft_1Hz['UV_CTS']  = tseg0['UV_CTS']
     dft_1Hz['RD_CTS']  = tseg0['RD_CTS']
     dft_1Hz['DK_CTS']  = tseg0['DK_CTS']
+    dft_1Hz['HV_mon']  = tseg0['HV_mon']
     # 
     dfm_1Hz['GPS_SEC'] = mseg0['MIP_GPS']
     dfm_1Hz['MG_CTS']  = mseg0['MG_CTS']
     dfm_1Hz['VK_CTS']  = mseg0['VK_CTS']
     dfm_1Hz['DK_CTS']  = mseg0['DK_CTS']
+    dfm_1Hz['HV_mon']  = mseg0['HV_mon']
     # 
     dft_10Hz['GPS_SEC'] = tseg1['TIP_GPS']
     dft_10Hz['UV_CTS']  = tseg1['UV_CTS']
@@ -272,9 +271,7 @@ def load_orbit_data(iss_file, ecl_file, t1, t2):
     """
     TSUVM_scan_model = IUS(tsegs['TSUVM_GPS_DEC'], tsegs['SUVM_ANGLE'], k=1)
     MSUVM_scan_model = IUS(msegs['MSUVM_GPS_DEC'], msegs['SUVM_ANGLE'], k=1)
-    
-    # plt.plot(segi['ISS_GPS'])
-    
+    # 
     ISS_POS_X_MODEL = IUS(segi['ISS_GPS'], segi['ISS_eci_posn_x'])
     ISS_POS_Y_MODEL = IUS(segi['ISS_GPS'], segi['ISS_eci_posn_y'])
     ISS_POS_Z_MODEL = IUS(segi['ISS_GPS'], segi['ISS_eci_posn_z'])
@@ -360,206 +357,41 @@ def load_orbit_data(iss_file, ecl_file, t1, t2):
     dfm_10Hz['XIP1_lvlh_q3'] = ISS_LVLH_Q3_MODEL(mseg1['MIP_GPS'])
     # 
     return dft_1Hz, dft_10Hz, dfm_1Hz, dfm_10Hz
-
-def make_TIP_ncfile(outfilename, dft_1Hz, dft_10Hz, vg0, vg1):
-    ncfile = netCDF4.Dataset(outfilename, mode='w', format='NETCDF4')
-    # 
-    ncfile.createDimension('nRec1Hz',  len(dft_1Hz))
-    ncfile.createDimension('nRec10Hz', len(dft_10Hz))
-    ncfile.createDimension('nVec', 3)
-    ncfile.createDimension('nQuat', 4)
-    # 
-    """
-    1 Hz Data
-    """
-    V01 = ncfile.createVariable('GPS_SEC_1Hz', 'f8', ('nRec1Hz',), zlib=True)
-    V01.units = 'seconds'
-    V01.long_name = 'GPS_time'
-    V01[:] = dft_1Hz['GPS_SEC']
-    # 
-    V02 = ncfile.createVariable('TIP_UV_1Hz', 'u8', ('nRec1Hz',), zlib=True)
-    V02.units = 'counts/sec'
-    V02.long_name = 'UV_PMT_counts'
-    V02[:] = dft_1Hz['UV_CTS']
-    # 
-    V03 = ncfile.createVariable('TIP_RED_1Hz', 'u8', ('nRec1Hz',), zlib=True)
-    V03.units = 'counts/sec'
-    V03.long_name = 'red_PMT_counts'
-    V03[:] = dft_1Hz['RD_CTS']
-    # 
-    V04 = ncfile.createVariable('TIP_DARK_1Hz', 'u8', ('nRec1Hz',), zlib=True)
-    V04.units = 'counts/sec'
-    V04.long_name = 'dark_PMT_counts'
-    V04[:] = dft_1Hz['DK_CTS']
-    # 
-    V10 = ncfile.createVariable('SCAN_ANGLE_1Hz', 'f8', ('nRec1Hz',), zlib=True)
-    V10.units = 'degrees'
-    V10.long_name = 'SUVM_Scan_Angle'
-    V10[:] = dft_1Hz['XIP0_SCAN_ANGLE']
-    # 
-    V20 = ncfile.createVariable('Geo_Lat_1Hz', 'f8', ('nRec1Hz',), zlib=True)
-    V20.units = 'degrees'
-    V20.long_name = 'ISS_Geographic_Latitude'
-    V20[:] = vg0['sc_lat']
-    # 
-    V21 = ncfile.createVariable('Geo_Lon_1Hz', 'f8', ('nRec1Hz',), zlib=True)
-    V21.units = 'degrees'
-    V21.long_name = 'ISS_Geographic_Longitude'
-    V21[:] = vg0['sc_lon']
-    # 
-    V22 = ncfile.createVariable('Tan_Pt_Lat_1Hz', 'f8', ('nRec1Hz',), zlib=True)
-    V22.units = 'degrees'
-    V22.long_name = 'Tangent_Point_Geographic_Latitude'
-    V22[:] = vg0['tp_lat']
-    # 
-    V23 = ncfile.createVariable('Tan_Pt_Lon_1Hz', 'f8', ('nRec1Hz',), zlib=True)
-    V23.units = 'degrees'
-    V23.long_name = 'Tangent_Point_Geographic_Longitude'
-    V23[:] = vg0['tp_lon']
-    # 
-    """
-    10 Hz Data
-    """
-    W01 = ncfile.createVariable('GPS_SEC_10Hz', 'f8', ('nRec10Hz',), zlib=True)
-    W01.units = 'seconds'
-    W01.long_name = 'GPS_time'
-    W01[:] = dft_10Hz['GPS_SEC']
-    # 
-    W02 = ncfile.createVariable('TIP_UV_10Hz', 'u8', ('nRec10Hz',), zlib=True)
-    W02.units = 'counts/sec'
-    W02.long_name = 'UV_PMT_counts'
-    W02[:] = dft_10Hz['UV_CTS']
-    # 
-    W03 = ncfile.createVariable('TIP_RED_10Hz', 'u8', ('nRec10Hz',), zlib=True)
-    W03.units = 'counts/sec'
-    W03.long_name = 'red_PMT_counts'
-    W03[:] = dft_10Hz['RD_CTS']
-    # 
-    W04 = ncfile.createVariable('TIP_DARK_10Hz', 'u8', ('nRec10Hz',), zlib=True)
-    W04.units = 'counts/sec'
-    W04.long_name = 'dark_PMT_counts'
-    W04[:] = dft_10Hz['DK_CTS']
-    # 
-    W10 = ncfile.createVariable('SCAN_ANGLE_10Hz', 'f8', ('nRec10Hz',), zlib=True)
-    W10.units = 'degrees'
-    W10.long_name = 'SUVM_Scan_Angle'
-    W10[:] = dft_10Hz['XIP1_SCAN_ANGLE']
-    # 
-    W20 = ncfile.createVariable('Geo_Lat_10Hz', 'f8', ('nRec10Hz',), zlib=True)
-    W20.units = 'degrees'
-    W20.long_name = 'ISS_Geographic_Latitude'
-    W20[:] = vg1['sc_lat']
-    # 
-    W21 = ncfile.createVariable('Geo_Lon_10Hz', 'f8', ('nRec10Hz',), zlib=True)
-    W21.units = 'degrees'
-    W21.long_name = 'ISS_Geographic_Longitude'
-    W21[:] = vg1['sc_lon']
-    # 
-    W22 = ncfile.createVariable('Tan_Pt_Lat_10Hz', 'f8', ('nRec10Hz',), zlib=True)
-    W22.units = 'degrees'
-    W22.long_name = 'Tangent_Point_Geographic_Latitude'
-    W22[:] = vg1['tp_lat']
-    # 
-    W23 = ncfile.createVariable('Tan_Pt_Lon_10Hz', 'f8', ('nRec10Hz',), zlib=True)
-    W23.units = 'degrees'
-    W23.long_name = 'Tangent_Point_Geographic_Longitude'
-    W23[:] = vg1['tp_lon']
-    # 
-    # dict_keys(['tp', 'tp_alt',
-    # 'look_azi', 'lza', 'look_ra', 'look_dec', 'sc_alt', 'sc_zen',
-    # 'sc_radial', 'tp_zen', 'sc_sza', 'tp_sza', 'suninfo'])
-    
-    # vg.SW_Version = SW_Version
-    # vg.file = file
-    # vg.process_UT = process_time
-    # vg = np.append(vg, [vg_tmp], axis=0)
-    
-    # for number in tseg0['TIP_GPS'][0:50]: print(f'{number:10.2f}')
     
     
-    
-    ncfile.close()
-    return 0
-
-def make_MIP_ncfile(outfilename, dfm_1Hz, dfm_10Hz, vg0, vg1):
-    ncfile = netCDF4.Dataset(outfilename, mode='w', format='NETCDF4')
-    # 
-    ncfile.createDimension('nRec1Hz',  len(dfm_1Hz))
-    ncfile.createDimension('nRec10Hz', len(dfm_10Hz))
-    ncfile.createDimension('nVec', 3)
-    ncfile.createDimension('nQuat', 4)
-    # 
-    V01 = ncfile.createVariable('GPS_SEC', 'f8', ('nRec1Hz',), zlib=True)
-    V01.units = 'seconds'
-    V01.long_name = 'GPS_time'
-    V01[:] = dfm_1Hz['GPS_SEC']
-    # 
-    V02 = ncfile.createVariable('MIP_UV_1Hz', 'u8', ('nRec1Hz',), zlib=True)
-    V02.units = 'counts/sec'
-    V02.long_name = 'MG_PMT_counts'
-    V02[:] = dfm_1Hz['MG_CTS']
-    # 
-    V03 = ncfile.createVariable('MIP_RED_1Hz', 'u8', ('nRec1Hz',), zlib=True)
-    V03.units = 'counts/sec'
-    V03.long_name = 'VK_PMT_counts'
-    V03[:] = dfm_1Hz['VK_CTS']
-    # 
-    V04 = ncfile.createVariable('MIP_DARK_1Hz', 'u8', ('nRec1Hz',), zlib=True)
-    V04.units = 'counts/sec'
-    V04.long_name = 'dark_PMT_counts'
-    V04[:] = dfm_1Hz['DK_CTS']
-    
-    # 
-    ncfile.close()
-    return 0
-
-
 def L1_ALS_TIP(dft_1Hz, dft_10Hz, outfilename):
-    print(f'\n\nCreating file ... \n ... {outfilename}')
+    print(f'\nCreating file ... \n ... {outfilename}.nc')
     vg0 = ECL_calc_viewgeom(dft_1Hz, unit = 'ALS')
     vg1 = ECL_calc_viewgeom(dft_10Hz, data_rate='10Hz', unit = 'ALS')
-    make_TIP_ncfile(outfilename, dft_1Hz, dft_10Hz, vg0, vg1)
-    
-    # tip_test_plot(dft_10Hz)
-    # 
+    generate_L1A_ncfile('TIP', outfilename, dft_1Hz, dft_10Hz, vg0, vg1)
     print(' ... Complete')
-    return 0
     
 def L1_ALS_MIP(dfm_1Hz, dfm_10Hz, outfilename):
-    print(f'\n\nCreating file ... \n ... {outfilename}')
-    # vg0 = ECL_calc_viewgeom(dfm_1Hz, unit = 'ALS')
-    # vg1 = ECL_calc_viewgeom(dfm_10Hz, data_rate='10Hz', unit = 'ALS')
-    # make_MIP_ncfile(outfilename, dfm_1Hz, dfm_10Hz, vg0, vg1)
-    
-    # mip_test_plot(dfm_10Hz)
-    # 
+    print(f'\nCreating file ... \n ... {outfilename}.nc')
+    vg0 = ECL_calc_viewgeom(dfm_1Hz, unit = 'ALS')
+    vg1 = ECL_calc_viewgeom(dfm_10Hz, data_rate='10Hz', unit = 'ALS')
+    generate_L1A_ncfile('MIP', outfilename, dfm_1Hz, dfm_10Hz, vg0, vg1)
     print(' ... Complete')
-    return 0
-    
-def L1_CTS_MIP(dfm_1Hz, dfm_10Hz, outfilename):
-    print(f'\n\nCreating file ... \n ... {outfilename}')
-    # vg0 = ECL_calc_viewgeom(dfm_1Hz, unit = 'CTS')
-    # vg1 = ECL_calc_viewgeom(dfm_10Hz, data_rate='10Hz', unit = 'CTS')
-    # make_MIP_ncfile(outfilename, dfm_1Hz, dfm_10Hz, vg0, vg1)
-    
-    # mip_test_plot(dft_10Hz)
-    # 
-    print(' ... Complete')
-    return 0
     
 def L1_CTS_TIP(dft_1Hz, dft_10Hz, outfilename):
-    print(f'\n\nCreating file ... \n ... {outfilename}')
+    print(f'\nCreating file ... \n ... {outfilename}.nc')
+    
     vg0 = ECL_calc_viewgeom(dft_1Hz, unit = 'CTS')
     vg1 = ECL_calc_viewgeom(dft_10Hz, data_rate='10Hz', unit = 'CTS')
-    make_TIP_ncfile(outfilename, dft_1Hz, dft_10Hz, vg0, vg1)
+    generate_L1A_ncfile('TIP', outfilename, dft_1Hz, dft_10Hz, vg0, vg1)
+    print(' ... Complete')
+    
+def L1_CTS_MIP(dfm_1Hz, dfm_10Hz, outfilename):
+    print(f'\nCreating file ... \n ... {outfilename}.nc')
+    vg0 = ECL_calc_viewgeom(dfm_1Hz, unit = 'CTS')
+    vg1 = ECL_calc_viewgeom(dfm_10Hz, data_rate='10Hz', unit = 'CTS')
+    generate_L1A_ncfile('MIP', outfilename, dfm_1Hz, dfm_10Hz, vg0, vg1)
+    print(' ... Complete')
     
     #### Test plot routine to look at data
     # clon = np.median(vg0['sc_lon'])
     # tip_test_plot(dft_10Hz)
     
-    # 
-    print(' ... Complete')
-    return 0
     
 def ECL_calc_viewgeom(df, data_rate = '1Hz', unit = 'CTS'):
     """
@@ -620,8 +452,7 @@ def ECL_calc_viewgeom(df, data_rate = '1Hz', unit = 'CTS'):
     R2 = np.array([[np.cos(ang2), -np.sin(ang2), 0],
                    [np.sin(ang2), np.cos(ang2), 0],
                    [0, 0, 1.0]])
-    # Adding ".T" invokes the Transpose of the matrix
-    ECL_to_iss = np.matmul(R1, R2).T # tweaked until it matched IDL output...
+    ECL_to_iss = np.matmul(R1, R2).T # Adding ".T" invokes the matrix Transpose
     # ECL_to_iss = np.linalg.multi_dot(R1.T, R2.T)
     # 
     look_ECL = np.zeros((3, len(df)))
@@ -657,17 +488,31 @@ def main(x=None):
     
     # x = 1023 # Overlap with SB test case
     
+    Dates to look for:
+    GOLD DOY 121 - 2023-05-01 --> Orbits     - 743
+         DOY 122 - 2023-05-02 --> 
+         DOY 124 - 2023-05-04 --> 
+         DOY 144 - 2023-05-24 --> 
+         DOY 203 - 2023-07-22 --> 
+         DOY 205 - 2023-07-24 --> 
+         DOY 241 - 2023-08-29 --> 
+         DOY 271 - 2023-09-29 --> 
+         DOY 272 - 2023-09-30 --> 
+         DOY 305 - 2023-11-01 --> 
+         DOY 306 - 2023-11-02 --> 
+    
     Orbits 1209-xxxx  ---  1 Jun 2023
     
     
     Orbit  4545  # An interesting orbit of data
     
+    ### Conjunctions with LLITED/PIANO
     Orbits 4633-4641  ---  8 Jan 2024
-    Orbits 4865-      --- 23 Jan 2024 --> Shit data
+    Orbits 4865-____  --- 23 Jan 2024 --> Shit data
     Orbits 4911-4918+ --- 26 Jan 2024
-    Orbits 5361- --- 24 Feb
-    Orbits 5376 --- 25 Feb --> interesting ionosphere bubble structure!
-    Orbits 5407 --- 27 Feb
+    Orbits 5361-____ --- 24 Feb
+    Orbits 5376-5678 --- 25 Feb --> interesting ionosphere bubble structure!
+    Orbits 5407-5421 --- 27 Feb --> a full day of data (minus a couple orbits)
     
     Orbits 5900-5901 --- 29 March GOOD TIP DATA, SHIT ISS
     
@@ -676,8 +521,8 @@ def main(x=None):
     version = 'v0.1'
     terminator_file = 'C:/data/STPH9/tle/stp_h9_terminator_log.tsv'
     
-    orbit0 = 5901
-    num_orb = 1
+    orbit0 = 5382
+    num_orb = 3
     for x in range(orbit0, orbit0+num_orb): 
         # Orbit selection
         # x = 4639 
@@ -719,21 +564,18 @@ def main(x=None):
         cmip_namepath = f'C:/data/ECLIPSE/flt/L1_CMIP/{DIR}/{cmip_fname}_{version}'
         # 
         """
-        Make the damn data files
+        Make the data files
         """
-        L1_ALS_TIP(atip_1Hz, atip_10Hz, atip_namepath)
-        L1_ALS_MIP(amip_1Hz, amip_10Hz, amip_namepath)
         L1_CTS_TIP(ctip_1Hz, ctip_10Hz, ctip_namepath)
-        L1_CTS_MIP(cmip_1Hz, cmip_10Hz, cmip_namepath)
+        # L1_CTS_MIP(cmip_1Hz, cmip_10Hz, cmip_namepath)
+        # L1_ALS_TIP(atip_1Hz, atip_10Hz, atip_namepath)
+        # L1_ALS_MIP(amip_1Hz, amip_10Hz, amip_namepath)
         # 
-        
-        # plt.plot(ctip_10Hz['UV_CTS'])
-        
-        tip_test_plot(ctip_10Hz)
-        mip_test_plot(cmip_10Hz)
-        tip_test_plot(atip_10Hz)
-        mip_test_plot(amip_10Hz)
-        
+        xip_single_orbit_plot(ctip_10Hz, unit='CTS Tri-TIP', save=ctip_namepath)
+        # xip_single_orbit_plot(cmip_10Hz, unit='CTS Tri-MIP', save=cmip_namepath)
+        # xip_single_orbit_plot(atip_10Hz, unit='ALS Tri-TIP', save=atip_namepath)
+        # xip_single_orbit_plot(amip_10Hz, unit='ALS Tri-MIP', save=amip_namepath)
+        # 
         # tip_test_plot(atip_10Hz, t1=10_000, t2=28_000)
         # mip_test_plot(amip_10Hz, t1=10_000, t2=28_000)
         # 

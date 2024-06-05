@@ -14,7 +14,7 @@ import struct
 import numpy as np
 import pandas as pd
 import astropy.time as aptime
-import spacepy as sp
+# import spacepy as sp
 import datetime
 # 
 class ISS_USGNC_TLM():

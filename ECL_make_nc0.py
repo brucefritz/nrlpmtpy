@@ -1599,9 +1599,9 @@ def ECL_L0_ISS(fname, iss_name, iss_byte):
     # print(iss.quat_ctrs[0:10][:])
     # 
 def main():
-    YYYY = 2024
-    FDIR = 2401
-    for DOY in range(20, 21):
+    YYYY = 2023
+    FDIR = 2305
+    for DOY in range(121, 122):
         tic = time.time()
         """
         Change f-string to f'{DOY:03}' to make a 3 char string with 0-padding
