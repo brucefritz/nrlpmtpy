@@ -21,6 +21,7 @@ import NRL_quaternion_calculator as quatcalc
 import NRL_viewgeom as nvg
 
 from ECL_plot_nc1 import xip_single_orbit_plot
+from ECL_plot_nc1 import xip_single_orbit_plot_tpt
 from ECL_generate_L1A_ncfile import generate_L1A_ncfile
 
 from matplotlib import pyplot as plt
@@ -488,6 +489,13 @@ def main(x=None):
     
     # x = 1023 # Overlap with SB test case
     
+    VVIPRE Stellar Cal - 10 May 2023 (DOY 130)
+    Orbits  869- 883
+    
+    ROTHR Dates - 7-11 June 2023 (DOY 158-162)
+    Orbits 1304-1379
+    
+    
     Dates to look for:
     GOLD DOY 121 - 2023-05-01 --> Orbits     - 743
          DOY 122 - 2023-05-02 --> 
@@ -503,6 +511,7 @@ def main(x=None):
     
     Orbits 1209-xxxx  ---  1 Jun 2023
     
+    Orbits 3310-3315 --- ~16-19 UT, 14 October 2023 --- Annular eclipse
     
     Orbit  4545  # An interesting orbit of data
     
@@ -511,17 +520,21 @@ def main(x=None):
     Orbits 4865-____  --- 23 Jan 2024 --> Shit data
     Orbits 4911-4918+ --- 26 Jan 2024
     Orbits 5361-____ --- 24 Feb
-    Orbits 5376-5678 --- 25 Feb --> interesting ionosphere bubble structure!
+    Orbits 5376-5396 --- 25 Feb --> interesting ionosphere bubble structure!
     Orbits 5407-5421 --- 27 Feb --> a full day of data (minus a couple orbits)
     
     Orbits 5900-5901 --- 29 March GOOD TIP DATA, SHIT ISS
     
     # x = 6054  # eclipse
+    
+    
+    Orbits 6059-6073 --- 9 April TEST DAY
+    
     """
     version = 'v0.1'
     terminator_file = 'C:/data/STPH9/tle/stp_h9_terminator_log.tsv'
     
-    orbit0 = 5382
+    orbit0 = 1313
     num_orb = 3
     for x in range(orbit0, orbit0+num_orb): 
         # Orbit selection
@@ -534,8 +547,8 @@ def main(x=None):
         next_orb = df.iloc[x+1]
         # 
         RevNum = str(this_orb.H9REV).zfill(4)
-        print(f'Orbit {RevNum} starts {df.iloc[x].DATE1} at {df.iloc[x].UTC1}')
-        print(f'Orbit {RevNum}  ends  {df.iloc[x+1].DATE1} at {df.iloc[x+1].UTC1}\n')
+        print(f'Orbit {RevNum} starts {this_orb.DATE1} at {this_orb.UTC1}')
+        print(f'Orbit {RevNum}  ends  {next_orb.DATE1} at {next_orb.UTC1}\n')
         # 
         YEAR = int(df.iloc[x].DATE1[0:4])
         DIR = f'{df.iloc[x].DATE1[2:4]}{df.iloc[x].DATE1[5:7]}'
@@ -545,6 +558,9 @@ def main(x=None):
         als_file = f'C:/data/ECLIPSE/flt/L0_ALS/{DIR}/NRL_1729_{YEAR}{DOY}_ECLIPSE_L0_ALS.nc'
         cts_file = f'C:/data/ECLIPSE/flt/L0_CTS/{DIR}/NRL_1729_{YEAR}{DOY}_ECLIPSE_L0_CTS.nc'
         iss_file = f'C:/data/ECLIPSE/flt/L0_ISS/{DIR}/NRL_1729_{YEAR}{DOY}_ECLIPSE_L0_ISS.nc'
+        # 
+        print(f'Orbit {RevNum} begins   : {this_orb.GPS1} s')
+        print(f'Orbit {RevNum} complete : {next_orb.GPS1} s\n')
         # 
         atip_1Hz, atip_10Hz, amip_1Hz, amip_10Hz = load_orbit_data(iss_file, als_file, this_orb.GPS1, next_orb.GPS1)
         ctip_1Hz, ctip_10Hz, cmip_1Hz, cmip_10Hz = load_orbit_data(iss_file, cts_file, this_orb.GPS1, next_orb.GPS1)
@@ -566,15 +582,17 @@ def main(x=None):
         """
         Make the data files
         """
-        L1_CTS_TIP(ctip_1Hz, ctip_10Hz, ctip_namepath)
+        # L1_CTS_TIP(ctip_1Hz, ctip_10Hz, ctip_namepath)
         # L1_CTS_MIP(cmip_1Hz, cmip_10Hz, cmip_namepath)
         # L1_ALS_TIP(atip_1Hz, atip_10Hz, atip_namepath)
         # L1_ALS_MIP(amip_1Hz, amip_10Hz, amip_namepath)
         # 
+        # xip_single_orbit_plot(cmip_10Hz, unit='CTS Tri-MIP', t1=0, t2=30_000, save=f'{cmip_namepath}_zoom')
+        
         xip_single_orbit_plot(ctip_10Hz, unit='CTS Tri-TIP', save=ctip_namepath)
-        # xip_single_orbit_plot(cmip_10Hz, unit='CTS Tri-MIP', save=cmip_namepath)
-        # xip_single_orbit_plot(atip_10Hz, unit='ALS Tri-TIP', save=atip_namepath)
-        # xip_single_orbit_plot(amip_10Hz, unit='ALS Tri-MIP', save=amip_namepath)
+        xip_single_orbit_plot(cmip_10Hz, unit='CTS Tri-MIP', save=cmip_namepath)
+        xip_single_orbit_plot(atip_10Hz, unit='ALS Tri-TIP', save=atip_namepath)
+        xip_single_orbit_plot(amip_10Hz, unit='ALS Tri-MIP', save=amip_namepath)
         # 
         # tip_test_plot(atip_10Hz, t1=10_000, t2=28_000)
         # mip_test_plot(amip_10Hz, t1=10_000, t2=28_000)
