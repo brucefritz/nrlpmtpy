@@ -1,16 +1,31 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May  3 21:33:19 2023
+Filename: ECL_make_nc0.py
+Author: Bruce A. Fritz, NRL Code 7634
+Date:   2023-03-20, Created
+        2024-12-17, Updated Header for git upload
+Version: 1.0
+Description: Executable main() script to process ECLIPSE TLM CCSDS files into
+    separated L0 files
 
-@author: bfritz
-
-exmample to follow at
+Classes:
+    None
+        
+Functions:
+    ECL_global_attributes() sets global attributes in the L0 file
+    ECL_L0_analog() creats a .nc file that contains 1 day of IIB analog data
+    generate_aux_logfile() creates a .txt file containing all AUX messages
+    ECL_L0_ALS()
+    ECL_L0_CTS()
+    ECL_L0_ISS()
+    
+NetCDF exmample to follow at
 https://unidata.github.io/python-training/workshop/Bonus/netcdf-writing/
 
-Notes to fix for next release: TIP HV Temperature variable --> Add "T" to name
-Normalize capitalization of "EVENT" vs "Event"
-
-External package dependencies -- netCDF4
+External Python package dependencies:
+    netCDF4
+    astropy
 
 """
 from netCDF4 import Dataset    # pip install netCDF4
@@ -25,7 +40,22 @@ import SUVM_packet_converter as spc
 import STPH9_usgnc_converter as h9gnc
 import astropy.time as apt
 
-def ECL_global_attributes(ncfile):
+def ECL_global_attributes(ncfile: Dataset) -> None:
+    """
+    Adds the common list of Global Attibutes to each NetCDF file being generated
+    for each data type (ALS, CTS, Analog)
+
+    Parameters
+    ----------
+    ncfile : Dataset
+        Pointer to netCDF4 Dataset that requires addition of Global Parameters
+    
+    Returns
+    -------
+    None
+        netCDF4 object does not require return to accept the update
+
+    """
     ncfile.title = 'ECLIPSE'
     ncfile.source_name = 'ECL>ECLIPSE'
     ncfile.descriptor = 'Experiment for Characterizing the Lower Ionosphere & Prediction of Sporadic-E'
@@ -46,23 +76,76 @@ def ECL_global_attributes(ncfile):
     # ncfile.logical_source_description = "Tri-MIP Photometer Counts"
     # ncfile.mods = "Initial Release"
 
-    # eclipse_rr_text = ["See Nicholas et al. (2019) for Tri-MIP description,", $
-    #                   " https://doi.org/10.1117/12.2594905"]
-    # ACK_TEXT   = "[TBR] Tri-MIP is funded by the DARPA, data archival is supported by the Chief of Naval Research"
-    # RULES_TEXT = "[TBR] Contact the author for more details" 
+    eclipse_text = """See Dymond et al. (2023) for an ECLIPSE description,
+                      https://doi.org/10.5281/zenodo.8092594"""
+    ACK_TEXT   = """Tri-TIP development was funded by the Office of Naval Research.
+                Tri-MIP development was funded by DARPA, data archival is 
+                supported by the Chief of Naval Research"""
+    RULES_TEXT = """    ECLIPSE is led by the U. S. Naval Research Laboratory 
+    (NRL). The ‘Rules of the Road’ help ensure that the use of any data and 
+    analysis results includes the proper inherent uncertainties and limitations 
+    in the data and data products, and that the time, effort, and expertise of 
+    the ECLIPSE team, as well as their sponsors, are properly recognized. Users 
+    of ECLIPSE data must agree to adhere to the following:
+        1.	The user should contact a listed team member at NRL (Ken Dymond or 
+            Bruce Fritz) prior to any investigation to discuss intended usage 
+            and possible data limitations.    
+        2.	Data will only be shared with other users with direct approval of 
+            an ECLIPSE team member, and with agreement from the user to abide 
+            by these Rules of the Road.
+        3.	Before they are formally submitted or presented, draft copies of 
+            all reports, publications, and presentations must be sent to an 
+            ECLIPSE team member along with an offer of co-authorship to all key 
+            ECLIPSE instrument scientists at NRL listed above. The user should 
+            coordinate this as early as possible, since publications and reports 
+            that include NRL co-authors may require up to four weeks for internal 
+            review and approval.
+        4.	Users should heed the caveats of instrument scientists as to the 
+            interpretation and limitations of data or model results. Investigators 
+            supplying data or models may insist that such caveats be published, 
+            even if co-authorship is declined. Data and model version numbers 
+            should also be specified, as relevant.
+        5.	Acknowledgment to institutions, personnel, and funding agencies must 
+            be given for all uses of ECLIPSE data regardless of whether co-
+            authorship is accepted, including at least the following statement 
+            The STP-H9 payload was integrated and flown under the direction of 
+            the Department of Defense Space Test Program (DoD STP). Support for 
+            the ECLIPSE experiment by the DARPA SEE Program and the Office of 
+            Naval Research. 
+        6.	Copies of all reports, papers, and presentations that use ECLIPSE 
+            data and results will be forwarded to Bruce Fritz, bruce.a.fritz4.civ@us.navy.mil, 
+            so that a Bibliography of productivity from ECLIPSE can be maintained.
+    """ 
 
-    # ncfile.text = eclipse_rr_text
+    ncfile.text = eclipse_text
+    ncfile.acknowledgement = ACK_TEXT
+    ncfile.rules_of_use = RULES_TEXT
     # ncfile.project = "SPDS>Space Physics Data System"
     # ;; See ISTP exchangeable data products for more info
-    # ;; Additional optional Global attributes .... see https://spdf.gsfc.nasa.gov/istp_guide/gattributes.html
-    # ncfile.acknowledgement = ACK_TEXT
-    # ncfile.rules_of_use = RULES_TEXT
+    # ;; Additional optional Global attributes .... 
+    #       see https://spdf.gsfc.nasa.gov/istp_guide/gattributes.html
     # ncfile.doi = "DOI: [TBD]" # contact SPASE to register
     # ncfile.spase_DatasetResourceID = "TBD", # * Recommended
     # ncfile.software_version = 'TBD'
     
 
-def ECL_L0_analog(fname, ebyte):
+def ECL_L0_analog(fname: str, ebyte: list) -> None:
+    """
+    Generate netCDF L0 file for a given ECLIPSE telemetry input
+
+    Parameters
+    ----------
+    fname : str
+        File name + path for input, used to generate output string
+    ebyte : list
+        eclipse_packet object of ECLIPSE_telemetry_breakout module
+
+    Returns
+    -------
+    None
+        .nc file created
+
+    """
     (fpath, fbase_ext) = path.split(fname)
     (fbase, f_ext) = path.splitext(fbase_ext)
     # 
@@ -81,13 +164,13 @@ def ECL_L0_analog(fname, ebyte):
     # 
     # Create Attributes
     # 
-    ### REQUIRED GLOBAL ATTRIBUTES
-    ECL_global_attributes(ncfile)
     ### GLOBAL ATTRIBUTES specific to this file type
     ncfile.source_1 = fbase_ext
-    ncfile.source_2 = 'TBD - Will be ISS telemetry file'
+    # ncfile.source_2 = 'TBD - Will be ISS telemetry file' # No ISS data here
     ncfile.filename = outname
-    ncfile.data_version = 'Raw Data'
+    ncfile.data_version = 'v1.0'
+    ### REQUIRED GLOBAL ATTRIBUTES
+    ECL_global_attributes(ncfile)
     # 
     # Create Variables
     ALS_GPSt = ncfile.createVariable('ALS_GPS_time', np.uint32, ('ALS_time',), zlib=True)
@@ -286,7 +369,23 @@ def ECL_L0_analog(fname, ebyte):
     print(' Analog File Complete: ' + outname)
     print('')
     
-def generate_aux_logfile(aux, auxname):
+def generate_aux_logfile(aux: list[int, bytearray], auxname: str) -> None:
+    """
+    Generates .txt log file from TIP telemetry
+
+    Parameters
+    ----------
+    aux : list[int, bytearray]
+        Input data from HRT file
+    auxname : str
+        Name used to generate output file
+
+    Returns
+    -------
+    None
+        File created externally
+
+    """
     print(f'Generating AUX logfile: {auxname}')
     with open(auxname, 'w') as fp:
         fp.write('Time                    Command\n')
@@ -297,19 +396,37 @@ def generate_aux_logfile(aux, auxname):
             fp.write(f'{time} {command[0:4]}\n')
     return 
 
-def ECL_L0_ALS(fname, ebyte):
+def ECL_L0_ALS(fname: str, ebyte: list) -> None:
+    """
+    Generates daily ECLIPSE ALS L0 file
+
+    Parameters
+    ----------
+    fname : str
+        Input filename
+    ebyte : list
+        eclipse_packet object of ECLIPSE_telemetry_breakout module
+
+    Returns
+    -------
+    None
+        .nc L0 file created
+
+    """
     (fpath, fbase_ext) = path.split(fname)
     (fbase, f_ext) = path.splitext(fbase_ext)
     # 
     fnew_ext = f"{fbase}_ECLIPSE_L0_ALS.nc"
     outname = path.join(fpath, 'L0_ALS', fnew_ext)
     #
+    print(f'Starting to generate the file(s) ... \n ... {outname}\n')
+    # 
     if len(ebyte.tip1_aux) > 0:
+        print(f' ... {fbase}_ALS_TIP_aux_log.txt\n')
         generate_aux_logfile(ebyte.tip1_aux, path.join(fpath,'L0_ALS','ALS_TIP_aux_log.txt'))
     if len(ebyte.mip3_aux) > 0:
+        print(f' ... {fbase}_ALS_TIP_aux_log.txt\n')
         generate_aux_logfile(ebyte.mip3_aux, path.join(fpath,'L0_ALS','ALS_MIP_aux_log.txt'))
-    # 
-    print(f'Starting to generate the file ... \n ... {outname}\n')
     # 
     ncfile = Dataset(outname,mode='w',format='NETCDF4') 
     # 
@@ -333,13 +450,12 @@ def ECL_L0_ALS(fname, ebyte):
     # 
     # Create Attributes
     # 
-    ### REQUIRED GLOBAL ATTRIBUTES
-    ECL_global_attributes(ncfile)
     ### GLOBAL ATTRIBUTES specific to this file type
     ncfile.source_1 = fbase_ext
-    ncfile.source_2 = 'TBD - Will be ISS telemetry file'
     ncfile.filename = outname
-    ncfile.data_version = 'Raw Data'
+    ncfile.data_version = 'v1.0'
+    ### REQUIRED GLOBAL ATTRIBUTES
+    ECL_global_attributes(ncfile)
     """ 
     # XIP Variables
     
@@ -890,22 +1006,41 @@ def ECL_L0_ALS(fname, ebyte):
     # self.motor_flags        = np.zeros(n, dtype='uint16') # 104
     """
 
-def ECL_L0_CTS(fname, ebyte):
+def ECL_L0_CTS(fname: str, ebyte: list) -> None:
+    """
+    Generates .nc L0 file for daily ECLIPSE CTS data
+
+    Parameters
+    ----------
+    fname : str
+        Filename + path for input file
+    ebyte : list
+        eclipse_packet object of ECLIPSE_telemetry_breakout module
+
+    Returns
+    -------
+    None
+        .nc L0 file created
+
+    """
     (fpath, fbase_ext) = path.split(fname)
     (fbase, f_ext) = path.splitext(fbase_ext)
     
     fnew_ext = f"{fbase}_ECLIPSE_L0_CTS.nc"
     outname = path.join(fpath, 'L0_CTS', fnew_ext)
     # 
-    if len(ebyte.tip5_aux) > 0:
-        generate_aux_logfile(ebyte.tip5_aux, path.join(fpath,'L0_CTS','CTS_TIP_aux_log.txt'))
-    if len(ebyte.mip7_aux) > 0:
-        generate_aux_logfile(ebyte.mip7_aux, path.join(fpath,'L0_CTS','CTS_MIP_aux_log.txt'))
+    print('Starting to generate the file(s) ... ')
     # 
-    print('Starting to generate the file ... ')
+    if len(ebyte.tip5_aux) > 0:
+        print(f' ... {fbase}_CTS_TIP_aux_log.txt')
+        generate_aux_logfile(ebyte.tip5_aux, path.join(fpath,'L0_CTS',f'{fbase}_CTS_TIP_aux_log.txt'))
+    if len(ebyte.mip7_aux) > 0:
+        print(f' ... {fbase}_CTS_MIP_aux_log.txt')
+        generate_aux_logfile(ebyte.mip7_aux, path.join(fpath,'L0_CTS',f'{fbase}_CTS_MIP_aux_log.txt'))
+    #
     print(' ... ' + outname)
     print('')
-    
+    # 
     tip0 = xpc.convert_m0_byt2dec(ebyte.tip5_m0,'TIP')
     tip1 = xpc.convert_m1_byt2dec(ebyte.tip5_m1,'TIP')
     mip0 = xpc.convert_m0_byt2dec(ebyte.mip7_m0,'MIP')
@@ -930,13 +1065,12 @@ def ECL_L0_CTS(fname, ebyte):
     # 
     # Create Attributes
     # 
-    ### REQUIRED GLOBAL ATTRIBUTES
-    ECL_global_attributes(ncfile)
     ### GLOBAL ATTRIBUTES specific to this file type
     ncfile.source_1 = fbase_ext
-    ncfile.source_2 = 'TBD - Will be ISS telemetry file'
     ncfile.filename = outname
-    ncfile.data_version = 'Raw Data'
+    ncfile.data_version = 'v1.0'
+    ### REQUIRED GLOBAL ATTRIBUTES
+    ECL_global_attributes(ncfile)
     """ 
     # XIP Variables
     
@@ -1464,7 +1598,25 @@ def ECL_L0_CTS(fname, ebyte):
     launch_lock_flags (72-75); VC_LIMIT_CHECK (76-77); motor_flags (104-105)
     """
 
-def ECL_L0_ISS(fname, iss_name, iss_byte):
+def ECL_L0_ISS(fname: str, iss_name: str, iss_byte: list[bytearray]) -> None:
+    """
+    Generates .nc L0 file for ISS position information related to ECLIPSE mssn
+
+    Parameters
+    ----------
+    fname : str
+        Filename + path for input file for ECLIPSE data
+    iss_name : str
+        Filename + path for input file for ISS data
+    iss_byte : list[bytearray]
+        List of byte values for ISS data created by eclipse_h9_ccsds module
+
+    Returns
+    -------
+    None
+        .nc L0 file created
+
+    """
     (fpath, fbase_ext) = path.split(fname)
     (ipath, ibase_ext) = path.split(iss_name)
     (fbase, f_ext) = path.splitext(fbase_ext)
@@ -1476,26 +1628,29 @@ def ECL_L0_ISS(fname, iss_name, iss_byte):
     # 
     iss_df = h9gnc.load_stph9_hs_packet_674f6(iss_byte)
     iss    = h9gnc.convert_stph9_hs_df_to_dataclass(iss_df)
-    # 
+    # _______________________
     # Generate a NetCDF File
-    # 
     ncfile = Dataset(outname,mode='w',format='NETCDF4') 
-    # 
+    # __________________
     # Define Dimensions
     ncfile.createDimension('nRec', len(iss_df))
     ncfile.createDimension('nVec', 3)
     ncfile.createDimension('nQuat', 4)
-    # 
+    # __________________
     # Create Attributes
-    # 
-    ### REQUIRED GLOBAL ATTRIBUTES
-    # ECL_global_attributes(ncfile)
     ### GLOBAL ATTRIBUTES specific to this file type
     ncfile.source_1 = ibase_ext
     ncfile.filename = outname
     ncfile.title    = 'ISS Time + Position Info'
-    ncfile.data_version = '0.1'
+    ncfile.data_version = 'v1.0'
     ncfile.APID     = '674f6'
+    ### REQUIRED GLOBAL ATTRIBUTES
+    ECL_global_attributes(ncfile)
+    # 
+    # ncfile.logical_file_id = "ECL_H0_MIP_20220801_V01 [TBR]"
+    # ncfile.logical_source  = "SLN_H0_MIP [TBR]"
+    # ncfile.logical_source_description = "ISS H&S Data"
+    ncfile.mods = "v0 - Initial Release"
     # 
     v00 = ncfile.createVariable('Year', np.uint16, ('nRec',), zlib=True)
     v00[:] = iss.yyyy
@@ -1598,10 +1753,10 @@ def ECL_L0_ISS(fname, iss_name, iss_byte):
     ncfile.close()
     # print(iss.quat_ctrs[0:10][:])
     # 
-def main():
+def main() -> None:
     YYYY = 2023
-    FDIR = 2305
-    for DOY in range(121, 122):
+    FDIR = 2304
+    for DOY in range(103, 106):
         tic = time.time()
         """
         Change f-string to f'{DOY:03}' to make a 3 char string with 0-padding
@@ -1615,15 +1770,24 @@ def main():
         ebyte = etb.breakout_hrt_packet(ecl_ccsds_byte)
         # 
         print(f'\n Loading {ecl_name} ...\n Loading {iss_name} ...\n{ebyte}\n')
-        # print(f'')
-        # print(f'')
         # Convert the binary data
+        ECL_L0_ISS(ecl_name, iss_name, iss_byte)
         ECL_L0_analog(ecl_name, ebyte)
         ECL_L0_CTS(ecl_name, ebyte)
         ECL_L0_ALS(ecl_name, ebyte)
-        ECL_L0_ISS(ecl_name, iss_name, iss_byte)
         toc = time.time()
         print(f' Completed for {DOY = } in {(toc-tic):.2f} seconds\n')
+    
+    # import netCDF4 as nc
+
+    # # Open the NetCDF file
+    # dataset = nc.Dataset('your_file.nc', 'r')
+
+    # # Access and print global attributes
+    # print("Global attributes:")
+    # for attr_name in dataset.ncattrs():
+    #     print(f"{attr_name}: {dataset.getncattr(attr_name)}")
+    
     
 if __name__ == "__main__":
     print(f"==== {__file__} ====")
