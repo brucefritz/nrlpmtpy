@@ -2,14 +2,20 @@
 """
 Filename: suvm_packet_converter.py
 Author: Bruce A. Fritz, NRL Code 7634
-Description: Set of functions to load SUVM telemetry and parse into 
+Description: Set of functions to load SUVM telemetry and parse into
             meaningful (decimal) values
 Date:   v1.0 2025-01-02, Created
 Mods:   v1.1 2025-04-22, Modified class structure to add "sort_by" method
                          Create new GPS time based on internal XIP timer
         v1.2 2025-11-03, Reverted back to basic time keeping, no interpolation
                          Added time from all headers at CCSDS and MOE levels
-                         
+        v1.3 2026-06-24, Removed bogus en.time/s.encoder_time assignment
+                         (neither field exists, raised AttributeError);
+                         fixed off-by-one byte offsets in
+                         suvm_general_converter's reset_status/last_cmd_*
+                         fields to match the bootloader header layout;
+                         vectorized the encoder_counts unpacking loop
+
 Classes:
     suvm_bootloader_packet()
     suvm_command_packet()
@@ -27,7 +33,7 @@ Functions:
 import numpy as np
 import matplotlib.pyplot as plt
 # import astropy.time as apt
-# 
+#
 class suvm_bootloader_packet():
     def __init__(self, n):
         self.H9_CCSDS_GPS_time  = np.zeros(n, dtype='float')
@@ -62,7 +68,7 @@ class suvm_bootloader_packet():
     def __str__(self):
         t1 = f"SUVM Bootloader Packets: {len(self.header)}"
         return f'{t1}\n'
-    
+
 class suvm_general_packet():
     # Input: n -- Number of packets
     def __init__(self,n):
@@ -137,7 +143,7 @@ class suvm_general_packet():
         for attr, value in self.__dict__.items():
             if isinstance(value, np.ndarray) and len(value) == len(sort_field):
                 setattr(self, attr, value[sort_idx])
-    # 
+    #
     def remove_data_point(self, index_to_remove):
         """
         Removes a data point at the specified index from all arrays in class
@@ -151,7 +157,7 @@ class suvm_general_packet():
             if isinstance(attr, np.ndarray): #Check if it is a numpy array
                 # Remove the element at the given index
                 setattr(self, attr_name, np.delete(attr, index_to_remove))
-    # 
+    #
 class suvm_command_packet():
     def __init__(self, n):
         self.H9_CCSDS_GPS_time  = np.zeros(n, dtype='float')
@@ -169,7 +175,7 @@ class suvm_command_packet():
     def __str__(self):
         t1 = f"SUVM Command Packets: {len(self.header)}"
         return f'{t1}\n'
-    # 
+    #
 class suvm_memory_packet():
     def __init__(self, n):
         self.H9_CCSDS_GPS_time  = np.zeros(n, dtype='float')
@@ -189,7 +195,7 @@ class suvm_memory_packet():
     def __str__(self):
         t1 = f"SUVM Memory Packets: {len(self.header)}"
         return f'{t1}\n'
-    # 
+    #
 class suvm_encoder_packet():
     def __init__(self, n):
         self.H9_CCSDS_GPS_time  = np.zeros(n, dtype='float')
@@ -215,7 +221,7 @@ class suvm_encoder_packet():
         Args:     index_to_remove (int): The index of the data point to remove
         """
         if not (0 <= index_to_remove < len(self.header)):
-            raise IndexError("Index out of bounds") 
+            raise IndexError("Index out of bounds")
         # Iterate through all attributes of the class
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
@@ -229,7 +235,7 @@ class suvm_encoder_packet():
                 else:
                     # Remove the element at the given index
                     setattr(self, attr_name, np.delete(attr, index_to_remove))
-    # 
+    #
 def suvm_bootloader_converter(s: list) -> suvm_bootloader_packet:
     """
     Converts SUVM bootloader frames to decimal values
@@ -239,7 +245,7 @@ def suvm_bootloader_converter(s: list) -> suvm_bootloader_packet:
     s : list
         Input data array with time tags and byte values of data
         See "suvm_packet" class in "ECLIPSE_telemetry_breakout.py"
-        
+
     Returns
     -------
     suvm_bootloader_packet
@@ -275,9 +281,9 @@ def suvm_bootloader_converter(s: list) -> suvm_bootloader_packet:
         bt.RAM_SBE[i]           = int.from_bytes(p[60:62],'little')
         bt.RAM_MBE[i]           = int.from_bytes(p[62:64],'little')
         bt.crc[i]               = int.from_bytes(p[64:68],'little')
-    # 
+    #
     return bt
-# 
+#
 def suvm_command_converter(s: list) -> suvm_command_packet:
     """
     Converts SUVM command frames to decimal values
@@ -287,7 +293,7 @@ def suvm_command_converter(s: list) -> suvm_command_packet:
     s : list
         Input data array with time tags and byte values of data
         See "suvm_packet" class in "ECLIPSE_telemetry_breakout.py"
-        
+
     Returns
     -------
     suvm_command_packet
@@ -307,7 +313,7 @@ def suvm_command_converter(s: list) -> suvm_command_packet:
         # cm.last_command[i]      = hex(int.from_bytes(p[16:cm.length[i]], 'little'))
         cm.last_command[i]      = p[16:cm.length[i]].hex()
         cm.crc[i]               = int.from_bytes(p[cm.length[i]:cm.length[i]+4], 'big')
-    # 
+    #
     return cm
 
 def suvm_encoder_converter(s: list) -> suvm_encoder_packet:
@@ -319,7 +325,7 @@ def suvm_encoder_converter(s: list) -> suvm_encoder_packet:
     s : list
         Input data array with time tags and byte values of data
         See "suvm_packet" class in "ECLIPSE_telemetry_breakout.py"
-        
+
     Returns
     -------
     suvm_encoder_packet
@@ -331,7 +337,6 @@ def suvm_encoder_converter(s: list) -> suvm_encoder_packet:
         en.H9_CCSDS_GPS_time[i] = s.encoder_ccsds_time[i]
         en.H9_CCSDS_ECL_time[i] = s.encoder_ccsds_ecl_time[i]
         en.ECL_MOE_GPS_time[i]  = s.encoder_ecl_moe_time[i]
-        en.time[i]              = s.encoder_time[i]
         en.header[i]            = int.from_bytes(p[0:4],'big')
         en.apid[i]              = p[4] # 4
         en.sequence_count[i]    = p[5]
@@ -339,11 +344,11 @@ def suvm_encoder_converter(s: list) -> suvm_encoder_packet:
         en.system_counter[i]    = float(int.from_bytes(p[8:16],'little')) / 1000.
         en.time_first_element[i]= float(int.from_bytes(p[16:24],'little')) / 1000.
         j = i*125
-        for z in range(0,250,2):
-            en.encoder_counts[int(j+z/2)] = int.from_bytes(p[24+z:24+z+2],'little') - 2**15
+        raw = np.frombuffer(bytes(p[24:24+250]), dtype='<u2', count=125)
+        en.encoder_counts[j:j+125] = raw.astype(np.int32) - 2**15
         en.padding[i]           = 0
         en.crc[i]               = int.from_bytes(p[276:280], 'little')
-    # 
+    #
     return en
 
 def suvm_general_converter(s: list) -> suvm_general_packet:
@@ -364,7 +369,7 @@ def suvm_general_converter(s: list) -> suvm_general_packet:
     """
     print('Busting bits n bytes from SUVM General Packet')
     gn = suvm_general_packet(len(s.general))
-    
+
     for i,p in enumerate(s.general):
         if len(p) < 120: continue
         gn.H9_CCSDS_GPS_time[i] = s.gen_ccsds_time[i]
@@ -378,10 +383,10 @@ def suvm_general_converter(s: list) -> suvm_general_packet:
         gn.gps_pps[i]            = float(int.from_bytes(p[16:24],'little'))/1000.
         gn.watchdog_counter[i]   = int.from_bytes(p[24:28],'little')
         gn.version[i]            = int.from_bytes(p[28:32],'little')
-        gn.reset_status[i]       = p[33]
-        gn.last_cmd_status[i]    = p[34]
-        gn.last_cmd_id[i]        = p[35]
-        gn.last_cmd_opcode[i]    = p[36]
+        gn.reset_status[i]       = p[32]
+        gn.last_cmd_status[i]    = p[33]
+        gn.last_cmd_id[i]        = p[34]
+        gn.last_cmd_opcode[i]    = p[35]
         gn.last_cmd_time[i]      = float(int.from_bytes(p[36:44],'little'))/1000.
         gn.cmd_success[i]        = p[44]
         gn.cmd_fail[i]           = p[45]
@@ -417,11 +422,11 @@ def suvm_general_converter(s: list) -> suvm_general_packet:
         gn.crc[i]                 = int.from_bytes(p[116:120],'little')
         gn.encoder_angle[i]       = (gn.encoder_current_ct[i] - gn.encoder_zero_offset[i]) * 360 / 2**13
         gn.target_angle[i]        = (gn.encoder_target[i] - gn.encoder_zero_offset[i]) * 360 / 2**13
-    # 
+    #
     try:
         d_enc = np.abs(np.diff(gn.encoder_angle))
-        d_enc_idx = np.where(d_enc > 2.5)[0] # 
-        # Note the indices *should* be incremented by 1 to offset the np.diff change, 
+        d_enc_idx = np.where(d_enc > 2.5)[0] #
+        # Note the indices *should* be incremented by 1 to offset the np.diff change,
         # but because we're given 2 values per outlier, we can just use the 2nd idx
         rem_idx = [d_enc_idx[i] for i in range(1, len(d_enc_idx), 2)]
         for idx,val in enumerate(rem_idx):
@@ -429,90 +434,90 @@ def suvm_general_converter(s: list) -> suvm_general_packet:
             gn.remove_data_point(val-idx)
     except:
         print(' Encoder data all good ... ')
-    
+
     # try:
-        
-    
+
+
     # try:
         # iso_t = apt.Time(gn.H9_CCSDS_GPS_time[0], format='gps')
         # print(f'{iso_t.fits}')
-        
+
         # k=1
         # ctr=0
-        
+
         # diff = np.diff(gn.gps_pps)
         # pps_array=[]
         # inst_array=[]
-        
+
         # while 1:
         #     if k > (len(s.general)-1): break
         #     if diff[k] > 0.5:
         #         pps_array.append(np.floor(s.gen_ccsds_time[k]))
         #         inst_array.append(gn.system_counter[k])
-            
+
         #     k+=1
-            
+
         # # Fit a line: gps_time ≈ a * instrument_pps_time + b
         # coeffs = np.polyfit(inst_array, pps_array, deg=1)
         # slope, intercept = coeffs
-        
+
         # Align all instrument times to GPS frame
         # corrected_inst_times = slope * gn.system_counter + intercept
         # corrected_gps_time = slope * s.general_time + intercept
-        
+
         # gn.system_counter = corrected_inst_times
         # gn.suvm_gps_time = corrected_gps_time
-        
+
         # while 1:
         #     if k > (len(s.general)-1): break
         #     dt = gn.gps_pps[k] - gn.gps_pps[k-1]
         #     if dt > 0.1:
         #         gps_int = np.floor(s.general_time[k])
-                
+
         #         if k < 10: # edge case before first PPS signal
         #             for m in range(1,10):
         #                 gn.suvm_gps_time[k-m] = gps_int - m/10.0
-                
-        #         # zero values probably the result of having 11 data points but 
+
+        #         # zero values probably the result of having 11 data points but
         #         # my loop only hard codes 10
-                
+
         #         if abs(np.floor(s.general_time[k-10]) - gps_int) < 0.5:
         #             print('ping')
         #             gps_int += 1
         #         # if gps_int - np.floor(s.general_time[k+15]) > 1.5: gps
-                    
+
         #         # repeated or skipped gps values
-                
+
         #         for m in range(0,10):
         #             try: gn.suvm_gps_time[k+m] = gps_int + m/10.0
         #             except IndexError: break
-                    
+
         #         ctr+=1
-            
+
         #     k+=1
-            
-        
+
+
         # dt = np.zeros(len(gn.sequence_count[1:]))
         # rolltime = np.zeros(len(gn.sequence_count))
         # Catch points where counter rolls over (Max value: 0xFFFF)
         # for x in range(len(dt)):
         #     dt[x] = (float(gn.sequence_count[x+1])-float(gn.sequence_count[x]))
-            
-            
+
+
         # gn.sequence_count = np.array([x + y for x,y in zip(gn.sequence_count, rolltime)], dtype='float')
         # gn.sort_by('sequence_count')
-        
+
         # plt.plot(gn.sequence_count, 'r')
         # plt.show()
-        
+
         # for i in range(len(dt)):
         #     gn.time[i+1] = gn.time[i] + dt[i]/10.0
         # print('final times:')
         # print(f'CCSDS: {s.general_time[i+1]},   Time: {gn.time[i+1]}')
         # print('start values:')
         # print(f'CCSDS: {s.general_time[0]},   Time: {gn.ccsds_time_tag[0]}')
-        
+
     # except IndexError:
     #     print('No SUVM time available\n')
-    
-    return gn    
+
+    return gn
