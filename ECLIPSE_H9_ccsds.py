@@ -1,41 +1,28 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Script to process data from *decrypted STP-H9 ECLIPSE CCSDS files
-
+Filename: ECLIPSE_H9_ccsds.py
+Author: Bruce A. Fritz, NRL Code 7634
+Date:   2024-01-10, Created
+        2024-12-17, Updated Header for git upload
+        2026-06-24, Moved decryption to separate file
+Version: 1.0
+Description: Set of functions that will (optionally) decrypt an ISS telemetry
+    STP-H9 ECLIPSE CCSDS file and load the bytes into appropriately sized 
+    frames for processing
 Functions:
-    decrypt_eclipse_hrt_from_ccsds(ccsds_in) --> 
-    
-    load_eclipse_bytes_from_ccsds(ccsds_in) --> reads in *decrypted* CCSDS 
+    1) load_eclipse_bytes_from_ccsds(ccsds_in) --> reads in *decrypted* CCSDS 
             packets and extracts HRT data
+            Inputs: decrypted CCSDS file, e.g. "NRL_1729_2023249.out"
+            Output: Python list of byte-frames containing ECLIPSE data
     
-* Requires decrypted CCSDS files. To decrypt in Spyder (Windows) IDE:
-In [1]: runfile('C:/code/py/stp/dice_decrypt_v2_0/decrypt.py', args=EncCCSDS, 
-                                    wdir='C:/code/py/stp/dice_decrypt_v2_0/')
+    2) load_iss_hs_bytes_from_ccsds(ccsds_in) --> reads in *decrypted* CCSDS
+            packets and extracts HS data
+            Inputs: decrypted CCSDS file, e.g. "NRL_1729_2023249.out"
+            Output: Python list of byte-frames containing ISS H&S data
 
-where EncCCSDS is the encrypted data file, e.g. 
-    'C:/data/ECLIPSE/gnd/220907-TVAC/IssCcsds.1729_2022-09-07_20_19_06'
-
-@author: bfritz
 """
-import sys
-import os
-import pandas as pd
-import numpy as np
-# 
-def decrypt_eclipse_hrt_from_ccsds(ccsds_in):
-    print('Prodecure only fit to run from Sypder IDE (Windows)')
-    # Pointer to decyprtion working directory
-    decrypt_dir = 'C:/code/py/stp/dice_decrypt_v2_0/'
-    # Pointer to decryption script
-    decrypt_file = f'{decrypt_dir}/decrypt.py'
-    isExist = os.path.exists(decrypt_dir)
-    if isExist == False:
-        print("STP decrypt tool not found, please fix the directory")
-        sys.exit()
-    # !!! Only works in Windwos-based Spyder IDE
-    runfile(decrypt_file, args=ccsds_in, wdir=decrypt_dir)
-    return
-# 
-def load_eclipse_bytes_from_ccsds(ccsds_in):
+def load_eclipse_bytes_from_ccsds(ccsds_in) -> list[bytes]:
     """
     # CCSDS packets are fixed length of 1300 bytes
     # 18 bytes CCSDS header
@@ -59,12 +46,12 @@ def load_eclipse_bytes_from_ccsds(ccsds_in):
       3  [0:15] -- Packet length --> 1293 for ECLIPSE = # bytes after header - 1
       4            Coarse Time MSW
       5            Coarse Time LSW
-      6   [0:7] -- Fine Time
+      6   [0:7] -- Fine Time (1/256 resolution)
       6  [8:15] -- Time ID, etc.
       7   [1:4] -- STP-H9 Element ID
       7  [5:15] -- STP-H9 Packet ID #1
       8            STP-H9 Packet ID #2
-      9            Additional Fine Time Precision
+      9            Additional Fine Time Precision (1/65535 resolution, overkill)
       --- Start ECLIPSE Header info
       10 Sequence Counter ?
       11 ECLIPSE data type (0xE803 == 1000 --> ECLIPSE HRT)
@@ -74,6 +61,8 @@ def load_eclipse_bytes_from_ccsds(ccsds_in):
     """
     fin = open(ccsds_in,"rb")		# open input file
     outbyte = []
+    outtime = []
+    gpstime = []
     pkt = 0
     while 1:
         x = bytearray(fin.read(1300))	# read in full CCSDS packet assuming it starts at first byte
@@ -83,18 +72,26 @@ def load_eclipse_bytes_from_ccsds(ccsds_in):
         abin = bin(int(x[0:2].hex(), 16))
         apid = int(abin[-11:], 2)
         ecid = x[20:22].hex()
+        
         if apid == 1729 and ecid == 'e803':
-            # print(x[22:24].hex(), int.from_bytes(x[22:24], 'little'))
+            fineplusbin = bin(int(x[10:11].hex(), 16))[2:].zfill(16)
+            finetime = int(fineplusbin[8:16], 2)/256.
+            # print(f"1 ISS {int.from_bytes(x[6:10], 'big') + finetime}")
+            # finetime2= int(x[16:18].hex(), 16)/65535.
+            # print(f"2 ISS {int.from_bytes(x[6:10], 'big') + finetime2}")
+            # print(f"ECL {int.from_bytes(x[24:28], 'little')}")
             pkt_len = int.from_bytes(x[22:24], 'little') # def. 0xf604-->1270
             outbyte.append(x[28:(28 + pkt_len)])	# extract the eclipse data
+            outtime.append(int.from_bytes(x[6:10], 'big') + finetime)
+            gpstime.append(int.from_bytes(x[24:28], 'little'))
             pkt += 1
         else:
             print('Anomalous packet')
     print('CCSDS File: ', ccsds_in)
-    print('CCSDS File Contents: ', pkt, ' HRT packets\n')
-    return [item for subset in outbyte for item in subset]
+    print('CCSDS File Contents: ', pkt, ' HRT packets')
+    return [item for subset in outbyte for item in subset], outtime, gpstime
 # 
-def load_iss_hs_bytes_from_ccsds(ccsds_in):
+def load_iss_hs_bytes_from_ccsds(ccsds_in) -> list[bytearray]:
     """
     This routine reads a STP-H9 GSE nbinary file, format 6
     This is a customized GSE packet that includes only the ISS USGNC parameters
@@ -127,6 +124,7 @@ def load_iss_hs_bytes_from_ccsds(ccsds_in):
     """
     fin = open(ccsds_in,"rb")
     outbyte = []
+    gps_list = []
     pkt_ctr = 0
     bad_packet = 0
     while 1:
@@ -135,27 +133,28 @@ def load_iss_hs_bytes_from_ccsds(ccsds_in):
             fin.close()
             break
         abin = bin(int(packet[22:24].hex(), 16))
-        apid = int(abin[-11:], 2)
-        gpstime = int.from_bytes(packet[48:52], 'big')
-        if apid == 674 and gpstime > 1362875400:
-            outbyte.append(packet)
-            pkt_ctr += 1
-        else:
+        try:
+            apid = int(abin[-11:], 2)
+            gpstime = int.from_bytes(packet[48:52], 'big')
+            if apid == 674 and gpstime > 1362875400:
+                outbyte.append(packet)
+                gps_list.append(gpstime)
+                pkt_ctr += 1
+            else:
+                bad_packet += 1
+                print('Anomalous packet')
+        except ValueError:
             bad_packet += 1
-            print('Anomalous packet')
+            print('Bad Packet Value')
     # 
     print('STP-H9 H&S File: ', ccsds_in)
     print('STP-H9 H&S File Contents: ', pkt_ctr, ' packets')
     print('                 skipped: ', bad_packet, ' bad packets\n')
     # 
-    return outbyte
+    return outbyte, gps_list
     
 # 
 # def main():
-    ### Debug test for decrypt
-    # dfile = 'C:/data/ECLIPSE/gnd/06-H9_integration/221128-H9_KSC/IssCcsds.1729_2022-11-28_10~29~19'
-    # decrypt_eclipse_hrt_from_ccsds(dfile)
-    # 
     ### Debug test for CCSDS loader
     # ccsds_file_in = 'C:/data/ECLIPSE/gnd/08-H9_TVAC/220909-TVAC/IssCcsds.1729_2022-09-09_22_54_13.out'
     # ccsds_byte = load_eclipse_bytes_from_ccsds(ccsds_file_in)
