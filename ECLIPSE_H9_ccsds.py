@@ -3,19 +3,18 @@
 """
 Filename: ECLIPSE_H9_ccsds.py
 Author: Bruce A. Fritz, NRL Code 7634
-Date:   2024-01-10, Created
-        2024-12-17, Updated Header for git upload
-        2026-06-24, Moved decryption to separate file
-Version: 1.0
-Description: Set of functions that will (optionally) decrypt an ISS telemetry
-    STP-H9 ECLIPSE CCSDS file and load the bytes into appropriately sized 
-    frames for processing
+Date:   2024-01-10, 0.0 Created
+        2024-12-17, 1.0 Updated Header for git upload
+        2026-06-24, 1.1 Moved decryption to separate file
+Version: 1.1
+Description: Set of functions that will load an ISS telemetry STP-H9 ECLIPSE 
+    CCSDS file and load the bytes into appropriately sized frames for processing
 Functions:
-    1) load_eclipse_bytes_from_ccsds(ccsds_in) --> reads in *decrypted* CCSDS 
+    1) load_eclipse_bytes_from_ccsds(ccsds_in) --> reads in *decrypted* CCSDS
             packets and extracts HRT data
             Inputs: decrypted CCSDS file, e.g. "NRL_1729_2023249.out"
             Output: Python list of byte-frames containing ECLIPSE data
-    
+
     2) load_iss_hs_bytes_from_ccsds(ccsds_in) --> reads in *decrypted* CCSDS
             packets and extracts HS data
             Inputs: decrypted CCSDS file, e.g. "NRL_1729_2023249.out"
@@ -29,11 +28,11 @@ def load_eclipse_bytes_from_ccsds(ccsds_in) -> list[bytes]:
     # 10 bytes ECLIPSE header
     # 1270 bytes ECLIPSE HRT data
     # 2 byte CRC-16
-    # 
+    #
     # The ouput is expected to feed into "breakout_hrt_packet()"
     # from ECLIPSE_telemetry_breakout.py
     # *** Note, the output flattens "outbyte" from a list of lists, to a single list
-    
+
     CCSDS Header
     Word [Bits] -- Description
       1   [0:2] -- Version number (0 == Version 1)
@@ -59,45 +58,38 @@ def load_eclipse_bytes_from_ccsds(ccsds_in) -> list[bytes]:
       13 GPS Time, Big end
       14 GPS Time, Little end
     """
-    fin = open(ccsds_in,"rb")		# open input file
     outbyte = []
     outtime = []
     gpstime = []
     pkt = 0
-    while 1:
-        x = bytearray(fin.read(1300))	# read in full CCSDS packet assuming it starts at first byte
-        if len(x) < 1300:				# if 1300 bytes not read, end of file
-            fin.close()
-            break
-        abin = bin(int(x[0:2].hex(), 16))
-        apid = int(abin[-11:], 2)
-        ecid = x[20:22].hex()
-        
-        if apid == 1729 and ecid == 'e803':
-            fineplusbin = bin(int(x[10:11].hex(), 16))[2:].zfill(16)
-            finetime = int(fineplusbin[8:16], 2)/256.
-            # print(f"1 ISS {int.from_bytes(x[6:10], 'big') + finetime}")
-            # finetime2= int(x[16:18].hex(), 16)/65535.
-            # print(f"2 ISS {int.from_bytes(x[6:10], 'big') + finetime2}")
-            # print(f"ECL {int.from_bytes(x[24:28], 'little')}")
-            pkt_len = int.from_bytes(x[22:24], 'little') # def. 0xf604-->1270
-            outbyte.append(x[28:(28 + pkt_len)])	# extract the eclipse data
-            outtime.append(int.from_bytes(x[6:10], 'big') + finetime)
-            gpstime.append(int.from_bytes(x[24:28], 'little'))
-            pkt += 1
-        else:
-            print('Anomalous packet')
+    with open(ccsds_in, "rb") as fin:
+        while 1:
+            x = bytearray(fin.read(1300))	# read in full CCSDS packet assuming it starts at first byte
+            if len(x) < 1300:				# if 1300 bytes not read, end of file
+                break
+            apid = int.from_bytes(x[0:2], 'big') & 0x07FF
+            ecid = x[20:22].hex()
+
+            if apid == 1729 and ecid == 'e803':
+                finetime = x[10] / 256.
+                pkt_len = int.from_bytes(x[22:24], 'little') # def. 0xf604-->1270
+                outbyte.append(x[28:(28 + pkt_len)])	# extract the eclipse data
+                outtime.append(int.from_bytes(x[6:10], 'big') + finetime)
+                gpstime.append(int.from_bytes(x[24:28], 'little'))
+                pkt += 1
+            else:
+                print('Anomalous packet')
     print('CCSDS File: ', ccsds_in)
     print('CCSDS File Contents: ', pkt, ' HRT packets')
-    return [item for subset in outbyte for item in subset], outtime, gpstime
-# 
+    return b''.join(bytes(b) for b in outbyte), outtime, gpstime
+#
 def load_iss_hs_bytes_from_ccsds(ccsds_in) -> list[bytearray]:
     """
     This routine reads a STP-H9 GSE nbinary file, format 6
     This is a customized GSE packet that includes only the ISS USGNC parameters
-    
+
     # H&S packets are fixed length of 453 bytes
-    
+
     Header (known, relevant parameters)
     Bytes [Bits] -- Description
       0- 38        -- Total Header
@@ -122,47 +114,31 @@ def load_iss_hs_bytes_from_ccsds(ccsds_in) -> list[bytearray]:
      371-374,384-387,397-400 - CTRS Velocity (float, ft/s)
      410-413,423-426,436-439,449-452 - CTRS Quaternion (float)
     """
-    fin = open(ccsds_in,"rb")
     outbyte = []
     gps_list = []
     pkt_ctr = 0
     bad_packet = 0
-    while 1:
-        packet = bytearray(fin.read(453)) # Read in a full packet at a time
-        if len(packet) < 453:			  # if 453 bytes not read, end of file
-            fin.close()
-            break
-        abin = bin(int(packet[22:24].hex(), 16))
-        try:
-            apid = int(abin[-11:], 2)
-            gpstime = int.from_bytes(packet[48:52], 'big')
-            if apid == 674 and gpstime > 1362875400:
-                outbyte.append(packet)
-                gps_list.append(gpstime)
-                pkt_ctr += 1
-            else:
+    with open(ccsds_in, "rb") as fin:
+        while 1:
+            packet = bytearray(fin.read(453)) # Read in a full packet at a time
+            if len(packet) < 453:			  # if 453 bytes not read, end of file
+                break
+            try:
+                apid = int.from_bytes(packet[22:24], 'big') & 0x07FF
+                gpstime = int.from_bytes(packet[48:52], 'big')
+                if apid == 674 and gpstime > 1362875400:
+                    outbyte.append(packet)
+                    gps_list.append(gpstime)
+                    pkt_ctr += 1
+                else:
+                    bad_packet += 1
+                    print('Anomalous packet')
+            except ValueError:
                 bad_packet += 1
-                print('Anomalous packet')
-        except ValueError:
-            bad_packet += 1
-            print('Bad Packet Value')
-    # 
+                print('Bad Packet Value')
+    #
     print('STP-H9 H&S File: ', ccsds_in)
     print('STP-H9 H&S File Contents: ', pkt_ctr, ' packets')
     print('                 skipped: ', bad_packet, ' bad packets\n')
-    # 
+    #
     return outbyte, gps_list
-    
-# 
-# def main():
-    ### Debug test for CCSDS loader
-    # ccsds_file_in = 'C:/data/ECLIPSE/gnd/08-H9_TVAC/220909-TVAC/IssCcsds.1729_2022-09-09_22_54_13.out'
-    # ccsds_byte = load_eclipse_bytes_from_ccsds(ccsds_file_in)
-    # 
-    ### Debug test for ISS CCSDS loader
-    # iss_file_in = 'C:/data/STPH9/flt/2312/NRL_674f6_2023361'
-    # iss_byte = load_iss_hs_bytes_from_ccsds(iss_file_in)
-    
-# if __name__ == "__main__":
-#     print(f"==== {__file__} ====")
-#     main()
