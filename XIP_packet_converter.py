@@ -12,6 +12,18 @@ Mods:   v1.1 2025-04-21, Modified class structure to add "sort_by" method
         v1.3 2026-06-24, Fixed heater base-16 parsing, error field hex decode,
                          and MODE/HV_STATUS binary decode; vectorized the
                          timer-rollover correction loop
+        v1.4 2026-06-24, M1 time tag now backfills the 9 samples preceding
+                         the reported end-of-packet time at 100 ms
+                         increments instead of stamping all 10 with the
+                         same value; M1 packets missing any of their 10
+                         dk/rd/uv samples are now skipped outright; and
+                         duplicate (redundant) time-tagged samples across
+                         packets are flagged, removed, and logged
+        v1.5 2026-06-24, Moved the M1 redundant-sample check to after the
+                         timer-rollover correction (and after sort_by) so
+                         that samples sharing a pre-correction raw counter
+                         value across a rollover are no longer falsely
+                         flagged as duplicates
 
 Classes:
     IDC_M0() --> Data frame (length of n-records) to hold basic 1 Hz telemetry
@@ -373,39 +385,78 @@ def convert_m1_hex2dec(m: list[str], xip: str) -> IDC_M1:
 
     """
     mout = IDC_M1(len(m), xip)
-    for i, p in enumerate(m):
-        mout.H9_CCSDS_GPS_time[i*10:(i*10+10)] = p[0]
-        mout.H9_CCSDS_ECL_time[i*10:(i*10+10)] = p[1]
-        mout.ECL_MOE_GPS_time[i*10:(i*10+10)] = p[2]
 
+    ccsds_gps = []
+    ccsds_ecl = []
+    moe_gps   = []
+    time_list = []
+    dark_list = []
+    chan2_list = []  # TIP red / MIP Mg
+    chan3_list = []  # TIP uv  / MIP VK
+
+    for i, p in enumerate(m):
         try:
             mout.IDC_ID = p[-1][3:7]
             try:
-                mout.time[i*10:(i*10+10)] = [int(p[-1][179:183],16) for k in range(10)]
-                # mout.time[i*10:(i*10+10)] = [int(p[-1][179:183],16) + k/10 for k in range(10)]
-            except ValueError: print(f'Skipping M1 Time packet # {i}')
-            # mout.GPS_time[i*10:(i*10+10)]  = [p[-1][0] + k/10 for k in range(10)]
+                # Each M1 frame reports a single end-of-packet time tag for
+                # 10 samples taken at 100 ms intervals; the tag marks the
+                # *last* sample, so the preceding 9 samples are backfilled
+                # at 100 ms increments before it rather than all stamped
+                # with the same value.
+                end_time = int(p[-1][179:183], 16)
+                pkt_time = [end_time - (9 - k) / 10.0 for k in range(10)]
+            except ValueError:
+                print(f'Skipping M1 Time packet # {i}')
+                continue
+            #
             dk = [p[-1][8:12],   p[-1][13:17],  p[-1][18:22],  p[-1][26:30],  p[-1][31:35],
                   p[-1][36:40],  p[-1][41:45],  p[-1][49:53],  p[-1][54:58],  p[-1][59:63]]
             rd = [p[-1][64:68],  p[-1][72:76],  p[-1][77:81],  p[-1][82:86],  p[-1][87:91],
                   p[-1][95:99],  p[-1][100:104],p[-1][105:109],p[-1][110:114],p[-1][118:122]]
             uv = [p[-1][123:127],p[-1][128:132],p[-1][133:137],p[-1][141:145],p[-1][146:150],
                   p[-1][151:155],p[-1][156:160],p[-1][164:168],p[-1][169:173],p[-1][174:178]]
-            try: mout.dark[i*10:(i*10+10)] = [int(x, 16) for x in dk]
-            except ValueError: print(f'Skipping M1 Dark packet # {i}')
+            try:
+                pkt_dark = [int(x, 16) for x in dk]
+            except ValueError:
+                print(f'Skipping M1 Dark packet # {i}')
+                continue
+            pkt_chan2 = pkt_chan3 = None
             if xip == 'TIP':
-                try: mout.red[i*10:(i*10+10)] = [int(x, 16) for x in rd]
+                try: pkt_chan2 = [int(x, 16) for x in rd]
                 except ValueError: print(f'Skipping M1 Red packet # {i}')
-
-                try: mout.uv[i*10:(i*10+10)]  = [int(x, 16) for x in uv]
+                try: pkt_chan3 = [int(x, 16) for x in uv]
                 except ValueError: print(f'Skipping M1 UV packet # {i}')
             if xip == 'MIP':
-                try: mout.Mg[i*10:(i*10+10)] = [int(x, 16) for x in rd]
+                try: pkt_chan2 = [int(x, 16) for x in rd]
                 except ValueError: print(f'Skipping M1 Mg+ packet # {i}')
-
-                try: mout.VK[i*10:(i*10+10)] = [int(x, 16) for x in uv]
+                try: pkt_chan3 = [int(x, 16) for x in uv]
                 except ValueError: print(f'Skipping M1 VK packet # {i}')
+            #
+            if pkt_chan2 is None or pkt_chan3 is None or len(pkt_dark) != 10:
+                print(f'Incomplete M1 packet # {i}: missing one or more of the 10 required dk/rd/uv samples, skipping')
+                continue
+            #
+            for k in range(10):
+                ccsds_gps.append(p[0])
+                ccsds_ecl.append(p[1])
+                moe_gps.append(p[2])
+                time_list.append(pkt_time[k])
+                dark_list.append(pkt_dark[k])
+                chan2_list.append(pkt_chan2[k])
+                chan3_list.append(pkt_chan3[k])
         except IndexError: print('Skipping Empty Packet')
+    #
+    mout.H9_CCSDS_GPS_time = np.array(ccsds_gps, dtype='float')
+    mout.H9_CCSDS_ECL_time = np.array(ccsds_ecl, dtype='uint64')
+    mout.ECL_MOE_GPS_time  = np.array(moe_gps,   dtype='uint64')
+    mout.time              = np.array(time_list, dtype='float')
+    mout.dark              = np.array(dark_list, dtype='uint64')
+    if xip == 'TIP':
+        mout.red = np.array(chan2_list, dtype='uint64')
+        mout.uv  = np.array(chan3_list, dtype='uint64')
+    if xip == 'MIP':
+        mout.Mg = np.array(chan2_list, dtype='uint64')
+        mout.VK = np.array(chan3_list, dtype='uint64')
     #
     try:
         if len(mout.time) < 2:
@@ -421,6 +472,26 @@ def convert_m1_hex2dec(m: list[str], xip: str) -> IDC_M1:
         mout.sort_by('time')
 
     except IndexError: print(f'No {xip} time available\n')
+    #
+    # Flag and drop redundant samples *after* rollover correction: doing
+    # this beforehand would falsely flag samples that share the same raw
+    # (pre-correction) counter value across a rollover as duplicates, even
+    # though they represent genuinely different times once corrected.
+    n_total = len(mout.time)
+    if n_total > 0:
+        dup_mask = np.zeros(n_total, dtype=bool)
+        dup_mask[1:] = np.diff(mout.time) == 0
+        n_removed = int(np.count_nonzero(dup_mask))
+        for x in np.nonzero(dup_mask)[0]:
+            print(f'  Redundant M1 sample at GPS time {mout.H9_CCSDS_GPS_time[x]} (time={mout.time[x]}) removed')
+        if n_removed > 0:
+            keep_mask = ~dup_mask
+            for attr, value in mout.__dict__.items():
+                if isinstance(value, np.ndarray) and len(value) == n_total:
+                    setattr(mout, attr, value[keep_mask])
+
+        pct_removed = n_removed / n_total * 100.
+        print(f'  XIP M1 {xip}: removed {n_removed} of {n_total} samples ({pct_removed:.2f}%) as redundant')
 
     # try:
     #     dt = np.abs(np.diff(mout.time))
