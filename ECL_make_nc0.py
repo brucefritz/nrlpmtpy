@@ -3,9 +3,9 @@
 """
 Filename: ECL_make_nc0.py
 Author: Bruce A. Fritz, NRL Code 7634
-Date:   2023-03-20, Created
-        2024-12-17, Updated Header for git upload
-Version: 1.0
+Version: 1.1
+Date:   v1.0  2023-03-20, Created
+        v1.1  2024-12-17, Updated Header for git upload
 Description: Executable main() script to process ECLIPSE TLM CCSDS files into
     separated L0 files
 
@@ -39,6 +39,7 @@ import XIP_packet_converter as xpc
 import SUVM_packet_converter as spc
 import STPH9_usgnc_converter as h9gnc
 import astropy.time as apt
+import ECL0_nc_survey as L0_plot
 
 def ECL_global_attributes(ncfile: Dataset) -> None:
     """
@@ -129,7 +130,7 @@ def ECL_global_attributes(ncfile: Dataset) -> None:
     # ncfile.software_version = 'TBD'
     
 
-def ECL_L0_analog(fname: str, ebyte: list) -> None:
+def ECL_L0_analog(fname: str, ebyte: list) -> str:
     """
     Generate netCDF L0 file for a given ECLIPSE telemetry input
 
@@ -142,7 +143,7 @@ def ECL_L0_analog(fname: str, ebyte: list) -> None:
 
     Returns
     -------
-    None
+    outname : str
         .nc file created
 
     """
@@ -369,6 +370,8 @@ def ECL_L0_analog(fname: str, ebyte: list) -> None:
     print(' Analog File Complete: ' + outname)
     print('')
     
+    return outname
+    
 def generate_aux_logfile(aux: list[int, bytearray], auxname: str) -> None:
     """
     Generates .txt log file from TIP telemetry
@@ -396,7 +399,7 @@ def generate_aux_logfile(aux: list[int, bytearray], auxname: str) -> None:
             fp.write(f'{time} {command[0:4]}\n')
     return 
 
-def ECL_L0_ALS(fname: str, ebyte: list) -> None:
+def ECL_L0_ALS(fname: str, ebyte: list) -> str:
     """
     Generates daily ECLIPSE ALS L0 file
 
@@ -423,10 +426,10 @@ def ECL_L0_ALS(fname: str, ebyte: list) -> None:
     # 
     if len(ebyte.tip1_aux) > 0:
         print(f' ... {fbase}_ALS_TIP_aux_log.txt\n')
-        generate_aux_logfile(ebyte.tip1_aux, path.join(fpath,'L0_ALS','ALS_TIP_aux_log.txt'))
+        generate_aux_logfile(ebyte.tip1_aux, path.join(fpath,'L0_ALS',f'{fbase}_ALS_TIP_aux_log.txt'))
     if len(ebyte.mip3_aux) > 0:
         print(f' ... {fbase}_ALS_TIP_aux_log.txt\n')
-        generate_aux_logfile(ebyte.mip3_aux, path.join(fpath,'L0_ALS','ALS_MIP_aux_log.txt'))
+        generate_aux_logfile(ebyte.mip3_aux, path.join(fpath,'L0_ALS',f'{fbase}_ALS_MIP_aux_log.txt'))
     # 
     ncfile = Dataset(outname,mode='w',format='NETCDF4') 
     # 
@@ -441,12 +444,13 @@ def ECL_L0_ALS(fname: str, ebyte: list) -> None:
     s4_gen = spc.suvm_general_converter(suvm4_byte)
     # 
     # Define Dimensions
-    ncfile.createDimension('TIP_M0_TIME', len(tip0.GPS_time))
-    ncfile.createDimension('TIP_M1_TIME', len(tip1.GPS_time))
-    ncfile.createDimension('TIP_SUVM_TIME', len(s2_gen.time))
-    ncfile.createDimension('MIP_M0_TIME', len(mip0.GPS_time))
-    ncfile.createDimension('MIP_M1_TIME', len(mip1.GPS_time))
-    ncfile.createDimension('MIP_SUVM_TIME', len(s4_gen.time))
+    
+    ncfile.createDimension('TIP_M0_TIME', len(tip0.time))
+    ncfile.createDimension('TIP_M1_TIME', len(tip1.time))
+    ncfile.createDimension('TIP_SUVM_TIME', len(s2_gen.system_counter))
+    ncfile.createDimension('MIP_M0_TIME', len(mip0.time))
+    ncfile.createDimension('MIP_M1_TIME', len(mip1.time))
+    ncfile.createDimension('MIP_SUVM_TIME', len(s4_gen.system_counter))
     # 
     # Create Attributes
     # 
@@ -463,14 +467,33 @@ def ECL_L0_ALS(fname: str, ebyte: list) -> None:
     #         self.IDC_ID = np.zeros(n, dtype='U4')
     #         self.MODE             = np.zeros(n, dtype='U2')
     """
-    ATIP0_GPSt = ncfile.createVariable('TIP_M0_GPS_TIME', np.uint64, ('TIP_M0_TIME',), zlib=True)
-    ATIP0_GPSt.units = 'seconds'
-    ATIP0_GPSt.long_name = 'ALS_TIP_M0_GPS_time'
-    ATIP0_GPSt[:] = tip0.GPS_time
-    AMIP0_GPSt = ncfile.createVariable('MIP_M0_GPS_TIME', np.uint64, ('MIP_M0_TIME',), zlib=True)
-    AMIP0_GPSt.units = 'seconds'
-    AMIP0_GPSt.long_name = 'ALS_MIP_M0_GPS_time'
-    AMIP0_GPSt[:] = mip0.GPS_time
+    # 
+    ATIP0_GPSt1 = ncfile.createVariable('TIP_M0_CCSDS_GPS_TIME', np.float64, ('TIP_M0_TIME',), zlib=True)
+    ATIP0_GPSt1.units = 'seconds'
+    ATIP0_GPSt1.long_name = 'ALS_TIP_M0_H9_CCSDS_GPS_time'
+    ATIP0_GPSt1[:] = tip0.H9_CCSDS_GPS_time
+    AMIP0_GPSt1 = ncfile.createVariable('MIP_M0_CCSDS_GPS_TIME', np.float64, ('MIP_M0_TIME',), zlib=True)
+    AMIP0_GPSt1.units = 'seconds'
+    AMIP0_GPSt1.long_name = 'ALS_MIP_M0_H9_CCSDS_GPS_time'
+    AMIP0_GPSt1[:] = mip0.H9_CCSDS_GPS_time
+    # 
+    ATIP0_GPSt2 = ncfile.createVariable('TIP_M0_CCSDS_ECL_TIME', np.float64, ('TIP_M0_TIME',), zlib=True)
+    ATIP0_GPSt2.units = 'seconds'
+    ATIP0_GPSt2.long_name = 'ALS_TIP_M0_CCSDS_ECLIPSE_GPS_time'
+    ATIP0_GPSt2[:] = tip0.H9_CCSDS_ECL_time
+    AMIP0_GPSt2 = ncfile.createVariable('MIP_M0_CCSDS_ECL_TIME', np.float64, ('MIP_M0_TIME',), zlib=True)
+    AMIP0_GPSt2.units = 'seconds'
+    AMIP0_GPSt2.long_name = 'ALS_MIP_M0_CCSDS_ECLIPSE_GPS_time'
+    AMIP0_GPSt2[:] = mip0.H9_CCSDS_ECL_time
+    # 
+    ATIP0_GPSt3 = ncfile.createVariable('TIP_M0_ECL_MOE_GPS_TIME', np.float64, ('TIP_M0_TIME',), zlib=True)
+    ATIP0_GPSt3.units = 'seconds'
+    ATIP0_GPSt3.long_name = 'ALS_TIP_M0_ECLIPSE_MOE_GPS_time'
+    ATIP0_GPSt3[:] = tip0.ECL_MOE_GPS_time
+    AMIP0_GPSt3 = ncfile.createVariable('MIP_M0_ECL_MOE_GPS_TIME', np.float64, ('MIP_M0_TIME',), zlib=True)
+    AMIP0_GPSt3.units = 'seconds'
+    AMIP0_GPSt3.long_name = 'ALS_MIP_M0_ECLIPSE_MOE_GPS_time'
+    AMIP0_GPSt3[:] = mip0.ECL_MOE_GPS_time
     # 
     ATIP0_TIME = ncfile.createVariable('TIP_M0_RUNTIME', np.uint64, ('TIP_M0_TIME',), zlib=True)
     ATIP0_TIME.units = 'seconds'
@@ -700,20 +723,39 @@ def ECL_L0_ALS(fname: str, ebyte: list) -> None:
         # mip1        .VK_chk = np.zeros(n, dtype='uint64')
 
     """
-    ATIP1_GPSt = ncfile.createVariable('TIP_M1_GPS_TIME', np.float64, ('TIP_M1_TIME',), zlib=True)
-    ATIP1_GPSt.long_name = 'ALS_TIP_GPS_time_10Hz'
-    ATIP1_GPSt.units = 'Seconds'
-    ATIP1_GPSt[:] = tip1.GPS_time
-    AMIP1_GPSt = ncfile.createVariable('MIP_M1_GPS_TIME', np.float64, ('MIP_M1_TIME',), zlib=True)
-    AMIP1_GPSt.long_name = 'ALS_MIP_GPS_time_10Hz'
-    AMIP1_GPSt.units = 'Seconds'
-    AMIP1_GPSt[:] = mip1.GPS_time
     # 
-    ATIP1_TIME = ncfile.createVariable('TIP_M1_RUNTIME', np.uint64, ('TIP_M1_TIME',), zlib=True)
+    ATIP1_GPSt1 = ncfile.createVariable('TIP_M1_CCSDS_GPS_TIME', np.float64, ('TIP_M1_TIME',), zlib=True)
+    ATIP1_GPSt1.long_name = 'ALS_TIP_CCSDS_GPS_time_10Hz'
+    ATIP1_GPSt1.units = 'Seconds'
+    ATIP1_GPSt1[:] = tip1.H9_CCSDS_GPS_time
+    AMIP1_GPSt1 = ncfile.createVariable('MIP_M1_CCSDS_GPS_TIME', np.float64, ('MIP_M1_TIME',), zlib=True)
+    AMIP1_GPSt1.long_name = 'ALS_MIP_CCSDS_GPS_time_10Hz'
+    AMIP1_GPSt1.units = 'Seconds'
+    AMIP1_GPSt1[:] = mip1.H9_CCSDS_GPS_time
+    # 
+    ATIP1_GPSt2 = ncfile.createVariable('TIP_M1_CCSDS_ECL_TIME', np.float64, ('TIP_M1_TIME',), zlib=True)
+    ATIP1_GPSt2.long_name = 'ALS_TIP_CCSDS_ECLIPSE_GPS_time_10Hz'
+    ATIP1_GPSt2.units = 'Seconds'
+    ATIP1_GPSt2[:] = tip1.H9_CCSDS_ECL_time
+    AMIP1_GPSt2 = ncfile.createVariable('MIP_M1_CCSDS_ECL_TIME', np.float64, ('MIP_M1_TIME',), zlib=True)
+    AMIP1_GPSt2.long_name = 'ALS_MIP_CCSDS_ECLIPSE_GPS_time_10Hz'
+    AMIP1_GPSt2.units = 'Seconds'
+    AMIP1_GPSt2[:] = mip1.H9_CCSDS_ECL_time
+    # 
+    ATIP1_GPSt3 = ncfile.createVariable('TIP_M1_ECL_MOE_GPS_TIME', np.float64, ('TIP_M1_TIME',), zlib=True)
+    ATIP1_GPSt3.long_name = 'ALS_TIP_ECLIPSE_MOE_GPS_time_10Hz'
+    ATIP1_GPSt3.units = 'Seconds'
+    ATIP1_GPSt3[:] = tip1.ECL_MOE_GPS_time
+    AMIP1_GPSt3 = ncfile.createVariable('MIP_M1_ECL_MOE_GPS_TIME', np.float64, ('MIP_M1_TIME',), zlib=True)
+    AMIP1_GPSt3.long_name = 'ALS_MIP_ECLIPSE_MOE_GPS_time_10Hz'
+    AMIP1_GPSt3.units = 'Seconds'
+    AMIP1_GPSt3[:] = mip1.ECL_MOE_GPS_time
+    # 
+    ATIP1_TIME = ncfile.createVariable('TIP_M1_RUNTIME', np.float64, ('TIP_M1_TIME',), zlib=True)
     ATIP1_TIME.long_name = 'System_Run_Time_10Hz'
     ATIP1_TIME.units = 'Seconds'
     ATIP1_TIME[:] = tip1.time
-    AMIP1_TIME = ncfile.createVariable('MIP_M1_RUNTIME', np.uint64, ('MIP_M1_TIME',), zlib=True)
+    AMIP1_TIME = ncfile.createVariable('MIP_M1_RUNTIME', np.float64, ('MIP_M1_TIME',), zlib=True)
     AMIP1_TIME.long_name = 'System_Run_Time_10Hz'
     AMIP1_TIME.units = 'Seconds'
     AMIP1_TIME[:] = mip1.time
@@ -751,14 +793,33 @@ def ECL_L0_ALS(fname: str, ebyte: list) -> None:
     """
     SUVM Variables
     """
-    ATIPSVM_TIME = ncfile.createVariable('TIP_SUVM_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
-    ATIPSVM_TIME.long_name = 'TIP_Scan_Mirror_Run_Time'
-    ATIPSVM_TIME.units = 'seconds'
-    ATIPSVM_TIME[:] = s2_gen.time
-    AMIPSVM_TIME = ncfile.createVariable('MIP_SUVM_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
-    AMIPSVM_TIME.long_name = 'MIP_Scan_Mirror_Run_Time'
-    AMIPSVM_TIME.units = 'seconds'
-    AMIPSVM_TIME[:] = s4_gen.time
+    # 
+    ATIPSVM_TIME1 = ncfile.createVariable('TIP_SUVM_CCSDS_GPS_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_TIME1.long_name = 'TIP_Scan_Mirror_CCSDS_GPS_time'
+    ATIPSVM_TIME1.units = 'seconds'
+    ATIPSVM_TIME1[:] = s2_gen.H9_CCSDS_GPS_time
+    AMIPSVM_TIME1 = ncfile.createVariable('MIP_SUVM_CCSDS_GPS_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_TIME1.long_name = 'MIP_Scan_Mirror_CCSDS_GPS_time'
+    AMIPSVM_TIME1.units = 'seconds'
+    AMIPSVM_TIME1[:] = s4_gen.H9_CCSDS_GPS_time
+    # 
+    ATIPSVM_TIME2 = ncfile.createVariable('TIP_SUVM_CCSDS_ECL_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_TIME2.long_name = 'TIP_Scan_Mirror_CCSDS_ECLIPSE_GPS_time'
+    ATIPSVM_TIME2.units = 'seconds'
+    ATIPSVM_TIME2[:] = s2_gen.H9_CCSDS_ECL_time
+    AMIPSVM_TIME2 = ncfile.createVariable('MIP_SUVM_CCSDS_ECL_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_TIME2.long_name = 'MIP_Scan_Mirror_CCSDS_ECLIPSE_GPS_time'
+    AMIPSVM_TIME2.units = 'seconds'
+    AMIPSVM_TIME2[:] = s4_gen.H9_CCSDS_ECL_time
+    # 
+    ATIPSVM_TIME3 = ncfile.createVariable('TIP_SUVM_ECL_MOE_GPS_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
+    ATIPSVM_TIME3.long_name = 'TIP_Scan_Mirror_ECLIPSE_MOE_GPS_time'
+    ATIPSVM_TIME3.units = 'seconds'
+    ATIPSVM_TIME3[:] = s2_gen.ECL_MOE_GPS_time
+    AMIPSVM_TIME3 = ncfile.createVariable('MIP_SUVM_ECL_MOE_GPS_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
+    AMIPSVM_TIME3.long_name = 'MIP_Scan_Mirror_ECLIPSE_MOE_GPS_time'
+    AMIPSVM_TIME3.units = 'seconds'
+    AMIPSVM_TIME3[:] = s4_gen.ECL_MOE_GPS_time
     # 
     ATIPSVM_SEQ = ncfile.createVariable('TIP_SUVM_SEQUENCE', np.ubyte, ('TIP_SUVM_TIME',), zlib=True)
     ATIPSVM_SEQ.long_name = 'TIP_Scan_Mirror_Sequence_Count'
@@ -1005,8 +1066,10 @@ def ECL_L0_ALS(fname: str, ebyte: list) -> None:
     # self.VC_LIMIT_CHECK     = np.zeros(n, dtype='uint16') # 76
     # self.motor_flags        = np.zeros(n, dtype='uint16') # 104
     """
+    
+    return outname
 
-def ECL_L0_CTS(fname: str, ebyte: list) -> None:
+def ECL_L0_CTS(fname: str, ebyte: list) -> str:
     """
     Generates .nc L0 file for daily ECLIPSE CTS data
 
@@ -1016,10 +1079,10 @@ def ECL_L0_CTS(fname: str, ebyte: list) -> None:
         Filename + path for input file
     ebyte : list
         eclipse_packet object of ECLIPSE_telemetry_breakout module
-
+    
     Returns
     -------
-    None
+    outname : str
         .nc L0 file created
 
     """
@@ -1041,10 +1104,10 @@ def ECL_L0_CTS(fname: str, ebyte: list) -> None:
     print(' ... ' + outname)
     print('')
     # 
-    tip0 = xpc.convert_m0_byt2dec(ebyte.tip5_m0,'TIP')
-    tip1 = xpc.convert_m1_byt2dec(ebyte.tip5_m1,'TIP')
-    mip0 = xpc.convert_m0_byt2dec(ebyte.mip7_m0,'MIP')
-    mip1 = xpc.convert_m1_byt2dec(ebyte.mip7_m1,'MIP')
+    tip0 = xpc.convert_m0_byt2dec(ebyte.tip5_m0, 'TIP')
+    tip1 = xpc.convert_m1_byt2dec(ebyte.tip5_m1, 'TIP')
+    mip0 = xpc.convert_m0_byt2dec(ebyte.mip7_m0, 'MIP')
+    mip1 = xpc.convert_m1_byt2dec(ebyte.mip7_m1, 'MIP')
     # 
     suvm6_byte = etb.breakout_suvm_packet(ebyte.suvm6)
     s6_gen = spc.suvm_general_converter(suvm6_byte)
@@ -1056,19 +1119,19 @@ def ECL_L0_CTS(fname: str, ebyte: list) -> None:
     ncfile = Dataset(outname,mode='w',format='NETCDF4') 
     # 
     # Define Dimensions
-    ncfile.createDimension('TIP_M0_TIME', len(tip0.GPS_time))
-    ncfile.createDimension('TIP_M1_TIME', len(tip1.GPS_time))
-    ncfile.createDimension('TIP_SUVM_TIME', len(s6_gen.time))
-    ncfile.createDimension('MIP_M0_TIME', len(mip0.GPS_time))
-    ncfile.createDimension('MIP_M1_TIME', len(mip1.GPS_time))
-    ncfile.createDimension('MIP_SUVM_TIME', len(s8_gen.time))
+    ncfile.createDimension('TIP_M0_TIME', len(tip0.time))
+    ncfile.createDimension('TIP_M1_TIME', len(tip1.time))
+    ncfile.createDimension('TIP_SUVM_TIME', len(s6_gen.system_counter))
+    ncfile.createDimension('MIP_M0_TIME', len(mip0.time))
+    ncfile.createDimension('MIP_M1_TIME', len(mip1.time))
+    ncfile.createDimension('MIP_SUVM_TIME', len(s8_gen.system_counter))
     # 
     # Create Attributes
     # 
     ### GLOBAL ATTRIBUTES specific to this file type
     ncfile.source_1 = fbase_ext
     ncfile.filename = outname
-    ncfile.data_version = 'v1.0'
+    ncfile.data_version = 'v1.1'
     ### REQUIRED GLOBAL ATTRIBUTES
     ECL_global_attributes(ncfile)
     """ 
@@ -1078,14 +1141,33 @@ def ECL_L0_CTS(fname: str, ebyte: list) -> None:
     #         self.IDC_ID = np.zeros(n, dtype='U4')
     #         self.MODE             = np.zeros(n, dtype='U2')
     """
-    CTIP0_GPSt = ncfile.createVariable('TIP_M0_GPS_TIME', np.uint64, ('TIP_M0_TIME',), zlib=True)
-    CTIP0_GPSt.units = 'seconds'
-    CTIP0_GPSt.long_name = 'CTS_TIP_M0_GPS_time'
-    CTIP0_GPSt[:] = tip0.GPS_time
-    CMIP0_GPSt = ncfile.createVariable('MIP_M0_GPS_TIME', np.uint64, ('MIP_M0_TIME',), zlib=True)
-    CMIP0_GPSt.units = 'seconds'
-    CMIP0_GPSt.long_name = 'CTS_MIP_M0_GPS_time'
-    CMIP0_GPSt[:] = mip0.GPS_time
+    # 
+    CTIP0_GPSt1 = ncfile.createVariable('TIP_M0_CCSDS_GPS_TIME', np.float64, ('TIP_M0_TIME',), zlib=True)
+    CTIP0_GPSt1.units = 'seconds'
+    CTIP0_GPSt1.long_name = 'CTS_TIP_M0_H9_CCSDS_GPS_time'
+    CTIP0_GPSt1[:] = tip0.H9_CCSDS_GPS_time
+    CMIP0_GPSt1 = ncfile.createVariable('MIP_M0_CCSDS_GPS_TIME', np.float64, ('MIP_M0_TIME',), zlib=True)
+    CMIP0_GPSt1.units = 'seconds'
+    CMIP0_GPSt1.long_name = 'CTS_MIP_M0_H9_CCSDS_GPS_time'
+    CMIP0_GPSt1[:] = mip0.H9_CCSDS_GPS_time
+    #
+    CTIP0_GPSt2 = ncfile.createVariable('TIP_M0_CCSDS_ECL_TIME', np.float64, ('TIP_M0_TIME',), zlib=True)
+    CTIP0_GPSt2.units = 'seconds'
+    CTIP0_GPSt2.long_name = 'CTS_TIP_M0_H9_CCSDS_ECLIPSE_GPS_time'
+    CTIP0_GPSt2[:] = tip0.H9_CCSDS_ECL_time
+    CMIP0_GPSt2 = ncfile.createVariable('MIP_M0_CCSDS_ECL_TIME', np.float64, ('MIP_M0_TIME',), zlib=True)
+    CMIP0_GPSt2.units = 'seconds'
+    CMIP0_GPSt2.long_name = 'CTS_MIP_M0_H9_CCSDS_ECLIPSE_GPS_time'
+    CMIP0_GPSt2[:] = mip0.H9_CCSDS_ECL_time
+    #
+    CTIP0_GPSt3 = ncfile.createVariable('TIP_M0_ECL_MOE_GPS_TIME', np.float64, ('TIP_M0_TIME',), zlib=True)
+    CTIP0_GPSt3.units = 'seconds'
+    CTIP0_GPSt3.long_name = 'CTS_TIP_M0_ECLIPSE_MOE_GPS_time'
+    CTIP0_GPSt3[:] = tip0.ECL_MOE_GPS_time
+    CMIP0_GPSt3 = ncfile.createVariable('MIP_M0_ECL_MOE_GPS_TIME', np.float64, ('MIP_M0_TIME',), zlib=True)
+    CMIP0_GPSt3.units = 'seconds'
+    CMIP0_GPSt3.long_name = 'CTS_MIP_M0_ECLIPSE_MOE_GPS_time'
+    CMIP0_GPSt3[:] = mip0.ECL_MOE_GPS_time
     # 
     CTIP0_TIME = ncfile.createVariable('TIP_M0_RUNTIME', np.uint64, ('TIP_M0_TIME',), zlib=True)
     CTIP0_TIME.units = 'seconds'
@@ -1305,22 +1387,39 @@ def ECL_L0_CTS(fname: str, ebyte: list) -> None:
     CMIP0_V5OVERRIDE.long_name = '5V_Override'
     CMIP0_V5OVERRIDE[:] = mip0.V5_OVERRIDE
     # 
-    CTIP1_GPSt = ncfile.createVariable('TIP_M1_GPS_TIME', np.float64, ('TIP_M1_TIME',), zlib=True)
-    CTIP1_GPSt.long_name = 'CTS_TIP_GPS_time_10Hz'
-    CTIP1_GPSt.units = 'Seconds'
-    CTIP1_GPSt[:] = tip1.GPS_time
-    
-    CMIP1_GPSt = ncfile.createVariable('MIP_M1_GPS_TIME', np.float64, ('MIP_M1_TIME',), zlib=True)
-    CMIP1_GPSt.long_name = 'CTS_MIP_GPS_time_10Hz'
-    CMIP1_GPSt.units = 'Seconds'
-    CMIP1_GPSt[:] = mip1.GPS_time
+    CTIP1_GPSt1 = ncfile.createVariable('TIP_M1_CCSDS_GPS_TIME', np.float64, ('TIP_M1_TIME',), zlib=True)
+    CTIP1_GPSt1.long_name = 'CTS_TIP_CCSDS_GPS_time_10Hz'
+    CTIP1_GPSt1.units = 'Seconds'
+    CTIP1_GPSt1[:] = tip1.H9_CCSDS_GPS_time
+    CMIP1_GPSt1 = ncfile.createVariable('MIP_M1_CCSDS_GPS_TIME', np.float64, ('MIP_M1_TIME',), zlib=True)
+    CMIP1_GPSt1.long_name = 'CTS_MIP_CCSDS_GPS_time_10Hz'
+    CMIP1_GPSt1.units = 'Seconds'
+    CMIP1_GPSt1[:] = mip1.H9_CCSDS_GPS_time
     # 
-    CTIP1_TIME = ncfile.createVariable('TIP_M1_RUNTIME', np.uint64, ('TIP_M1_TIME',), zlib=True)
+    CTIP1_GPSt2 = ncfile.createVariable('TIP_M1_CCSDS_ECL_TIME', np.float64, ('TIP_M1_TIME',), zlib=True)
+    CTIP1_GPSt2.long_name = 'CTS_TIP_CCSDS_ECLIPSE_GPS_time_10Hz'
+    CTIP1_GPSt2.units = 'Seconds'
+    CTIP1_GPSt2[:] = tip1.H9_CCSDS_ECL_time
+    CMIP1_GPSt2 = ncfile.createVariable('MIP_M1_CCSDS_ECL_TIME', np.float64, ('MIP_M1_TIME',), zlib=True)
+    CMIP1_GPSt2.long_name = 'CTS_MIP_CCSDS_ECLIPSE_GPS_time_10Hz'
+    CMIP1_GPSt2.units = 'Seconds'
+    CMIP1_GPSt2[:] = mip1.H9_CCSDS_ECL_time
+    # 
+    CTIP1_GPSt3 = ncfile.createVariable('TIP_M1_ECL_MOE_GPS_TIME', np.float64, ('TIP_M1_TIME',), zlib=True)
+    CTIP1_GPSt3.long_name = 'CTS_TIP_ECLIPSE_MOE_GPS_time_10Hz'
+    CTIP1_GPSt3.units = 'Seconds'
+    CTIP1_GPSt3[:] = tip1.ECL_MOE_GPS_time
+    CMIP1_GPSt3 = ncfile.createVariable('MIP_M1_ECL_MOE_GPS_TIME', np.float64, ('MIP_M1_TIME',), zlib=True)
+    CMIP1_GPSt3.long_name = 'CTS_MIP_ECLIPSE_MOE_GPS_time_10Hz'
+    CMIP1_GPSt3.units = 'Seconds'
+    CMIP1_GPSt3[:] = mip1.ECL_MOE_GPS_time
+    # 
+    CTIP1_TIME = ncfile.createVariable('TIP_M1_RUNTIME', np.float64, ('TIP_M1_TIME',), zlib=True)
     CTIP1_TIME.long_name = 'System_Run_Time_10Hz'
     CTIP1_TIME.units = 'Seconds'
     CTIP1_TIME[:] = tip1.time
     
-    CMIP1_TIME = ncfile.createVariable('MIP_M1_RUNTIME', np.uint64, ('MIP_M1_TIME',), zlib=True)
+    CMIP1_TIME = ncfile.createVariable('MIP_M1_RUNTIME', np.float64, ('MIP_M1_TIME',), zlib=True)
     CMIP1_TIME.long_name = 'System_Run_Time_10Hz'
     CMIP1_TIME.units = 'Seconds'
     CMIP1_TIME[:] = mip1.time
@@ -1357,15 +1456,33 @@ def ECL_L0_CTS(fname: str, ebyte: list) -> None:
     """
     SUVM Variables
     """
-    #!!!
-    CTIPSVM_TIME = ncfile.createVariable('TIP_SUVM_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
-    CTIPSVM_TIME.long_name = 'TIP_Scan_Mirror_Run_Time'
-    CTIPSVM_TIME.units = 'seconds'
-    CTIPSVM_TIME[:] = s6_gen.time
-    CMIPSVM_TIME = ncfile.createVariable('MIP_SUVM_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
-    CMIPSVM_TIME.long_name = 'MIP_Scan_Mirror_Run_Time'
-    CMIPSVM_TIME.units = 'seconds'
-    CMIPSVM_TIME[:] = s8_gen.time
+    #
+    CTIPSVM_TIME1 = ncfile.createVariable('TIP_SUVM_CCSDS_GPS_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
+    CTIPSVM_TIME1.long_name = 'TIP_Scan_Mirror_CCSDS_GPS_time'
+    CTIPSVM_TIME1.units = 'seconds'
+    CTIPSVM_TIME1[:] = s6_gen.H9_CCSDS_GPS_time
+    CMIPSVM_TIME1 = ncfile.createVariable('MIP_SUVM_CCSDS_GPS_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
+    CMIPSVM_TIME1.long_name = 'MIP_Scan_Mirror_CCSDS_GPS_time'
+    CMIPSVM_TIME1.units = 'seconds'
+    CMIPSVM_TIME1[:] = s8_gen.H9_CCSDS_GPS_time
+    # 
+    CTIPSVM_TIME2 = ncfile.createVariable('TIP_SUVM_CCSDS_ECL_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
+    CTIPSVM_TIME2.long_name = 'TIP_Scan_Mirror_CCSDS_ECLIPSE_GPS_time'
+    CTIPSVM_TIME2.units = 'seconds'
+    CTIPSVM_TIME2[:] = s6_gen.H9_CCSDS_ECL_time
+    CMIPSVM_TIME2 = ncfile.createVariable('MIP_SUVM_CCSDS_ECL_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
+    CMIPSVM_TIME2.long_name = 'MIP_Scan_Mirror_CCSDS_ECLIPSE_GPS_time'
+    CMIPSVM_TIME2.units = 'seconds'
+    CMIPSVM_TIME2[:] = s8_gen.H9_CCSDS_ECL_time
+    # 
+    CTIPSVM_TIME3 = ncfile.createVariable('TIP_SUVM_ECL_MOE_GPS_TIME', np.float64, ('TIP_SUVM_TIME',), zlib=True)
+    CTIPSVM_TIME3.long_name = 'TIP_Scan_Mirror_ECLIPSE_MOE_GPS_time'
+    CTIPSVM_TIME3.units = 'seconds'
+    CTIPSVM_TIME3[:] = s6_gen.ECL_MOE_GPS_time
+    CMIPSVM_TIME3 = ncfile.createVariable('MIP_SUVM_ECL_MOE_GPS_TIME', np.float64, ('MIP_SUVM_TIME',), zlib=True)
+    CMIPSVM_TIME3.long_name = 'MIP_Scan_Mirror_ECLIPSE_MOE_GPS_time'
+    CMIPSVM_TIME3.units = 'seconds'
+    CMIPSVM_TIME3[:] = s8_gen.ECL_MOE_GPS_time
     # 
     CTIPSVM_SEQ = ncfile.createVariable('TIP_SUVM_SEQUENCE', np.ubyte, ('TIP_SUVM_TIME',), zlib=True)
     CTIPSVM_SEQ.long_name = 'TIP_Scan_Mirror_Sequence_Count'
@@ -1597,8 +1714,10 @@ def ECL_L0_CTS(fname: str, ebyte: list) -> None:
     GPIO_A (64-67); GPIO_B (68-71)
     launch_lock_flags (72-75); VC_LIMIT_CHECK (76-77); motor_flags (104-105)
     """
+    
+    return outname
 
-def ECL_L0_ISS(fname: str, iss_name: str, iss_byte: list[bytearray]) -> None:
+def ECL_L0_ISS(fname: str, iss_name: str, iss_byte: list[bytearray]) -> str:
     """
     Generates .nc L0 file for ISS position information related to ECLIPSE mssn
 
@@ -1613,7 +1732,7 @@ def ECL_L0_ISS(fname: str, iss_name: str, iss_byte: list[bytearray]) -> None:
 
     Returns
     -------
-    None
+    outname : str
         .nc L0 file created
 
     """
@@ -1751,32 +1870,141 @@ def ECL_L0_ISS(fname: str, iss_name: str, iss_byte: list[bytearray]) -> None:
     v35[:] = iss.quat_ctrs
     
     ncfile.close()
+    return outname
     # print(iss.quat_ctrs[0:10][:])
     # 
+def print_L0_ECLIPSE_summary(ebyte: list, iss_byte: list[bytearray], rtdir: str) -> None:
+    """
+    
+    Parameters
+    ----------
+    ebyte : list
+        DESCRIPTION.
+    iss_byte : list[bytearray]
+        DESCRIPTION.
+    rtdir : str
+        Path to the directory where the file should be placed
+
+    Returns
+    -------
+    None
+        DESCRIPTION.
+    
+    """
+    iss_df = h9gnc.load_stph9_hs_packet_674f6(iss_byte)
+    iss    = h9gnc.convert_stph9_hs_df_to_dataclass(iss_df)
+    
+    atip0 = xpc.convert_m0_byt2dec(ebyte.tip1_m0,'TIP')
+    amip0 = xpc.convert_m0_byt2dec(ebyte.mip3_m0,'MIP')
+    ctip0 = xpc.convert_m0_byt2dec(ebyte.tip5_m0,'TIP')
+    cmip0 = xpc.convert_m0_byt2dec(ebyte.mip7_m0,'MIP')
+    
+    ymd = f'{int(np.median(iss.yyyy))}/{int(np.median(iss.mm)):02}/{int(np.median(iss.dd)):02}'
+    doy = f'{int(np.median(iss.doy))}'
+    n_iiba = f'{len(ebyte.analog1):>6}'
+    n_iibc = f'{len(ebyte.analog2):>6}'
+    #___TIP_ALS
+    n_lrt_ta = f'{len(ebyte.tip1_m0):>8}'
+    n_hrt_ta = f'{len(ebyte.tip1_m1):>8}'
+    n_aux_ta = f'{len(ebyte.tip1_aux):>8}'
+    n_svm_ta = f'{len(ebyte.suvm2):>8}'
+    try:
+        hvv_ta = f'{round(max(atip0.HV_mon)):>6}'
+    except ValueError:
+        hvv_ta = f'{0:>6}'
+    #___MIP_ALS
+    n_lrt_ma = f'{len(ebyte.mip3_m0):>8}'
+    n_hrt_ma = f'{len(ebyte.mip3_m1):>8}'
+    n_aux_ma = f'{len(ebyte.mip3_aux):>8}'
+    n_svm_ma = f'{len(ebyte.suvm4):>8}'
+    try:
+        hvv_ma = f'{round(max(amip0.HV_mon)):>6}'
+    except ValueError:
+        hvv_ma = f'{0:>6}'
+    #___TIP_CTS
+    n_lrt_tc = f'{len(ebyte.tip5_m0):>8}'
+    n_hrt_tc = f'{len(ebyte.tip5_m1):>8}'
+    n_aux_tc = f'{len(ebyte.tip5_aux):>8}'
+    n_svm_tc = f'{len(ebyte.suvm6):>8}'
+    try:
+        hvv_tc = f'{round(max(ctip0.HV_mon)):>6}'
+    except ValueError:
+        hvv_tc = f'{0:>6}'
+    #___MIP_CTS
+    n_lrt_mc = f'{len(ebyte.mip7_m0):>8}'
+    n_hrt_mc = f'{len(ebyte.mip7_m1):>8}'
+    n_aux_mc = f'{len(ebyte.mip7_aux):>8}'
+    n_svm_mc = f'{len(ebyte.suvm8):>8}'
+    try:
+        hvv_mc = f'{round(max(cmip0.HV_mon)):>6}'
+    except ValueError:
+        hvv_mc = f'{0:>6}'
+    
+    filename = f'{rtdir}{int(np.median(iss.yyyy))}{int(np.median(iss.doy)):03}_eclipse_daily_status.txt'
+    
+    print(f'Generating L0 logfile: ... {filename}')
+    
+    header = 'YYYY/MM/DD DOY n_iiba n_iibc \
+n_lrt_ta n_hrt_ta n_aux_ta hvv_ta n_svm_ta \
+n_lrt_ma n_hrt_ma n_aux_ma hvv_ma n_svm_ma \
+n_lrt_tc n_hrt_tc n_aux_tc hvv_tc n_svm_tc \
+n_lrt_mc n_hrt_mc n_aux_mc hvv_mc n_svm_mc\n'
+    print(header)
+    
+    dout = f'{ymd} {doy} {n_iiba} {n_iibc} \
+{n_lrt_ta} {n_hrt_ta} {n_aux_ta} {hvv_ta} {n_svm_ta} \
+{n_lrt_ma} {n_hrt_ma} {n_aux_ma} {hvv_ma} {n_svm_ma} \
+{n_lrt_tc} {n_hrt_tc} {n_aux_tc} {hvv_tc} {n_svm_tc} \
+{n_lrt_mc} {n_hrt_mc} {n_aux_mc} {hvv_mc} {n_svm_mc}'
+    print(dout)
+    
+    with open(filename, 'w') as fp:
+        fp.write(header)
+        fp.write(dout)
+        # for i, c in enumerate(aux):
+        #     time = iso_t.fits
+        #     fp.write(f'{time} {command[0:4]}\n')
+    
+    return
+    # 
 def main() -> None:
-    YYYY = 2023
-    FDIR = 2304
-    for DOY in range(103, 106):
+    eclpath = 'D:/ECLIPSE/flt/'
+    YYYY = 2026
+    for DOY in range(174, 175):
         tic = time.time()
-        """
-        Change f-string to f'{DOY:03}' to make a 3 char string with 0-padding
-        """
-        ecl_load = f'C:/data/ECLIPSE/flt/RAW_OUT/{FDIR}/NRL_1729_{YYYY}{DOY:03}.out'
-        ecl_name = f'C:/data/ECLIPSE/flt/NRL_1729_{YYYY}{DOY:03}.out'
-        iss_name = f'C:/data/STPH9/flt/{FDIR}/NRL_674f6_{YYYY}{DOY:03}'
+        # Change f-string to f'{DOY:03}' to make a 3 char string with 0-padding
+        ecl_load = f'{eclpath}RAW_OUT/NRL_1729_{YYYY}{DOY:03}.out'
+        ecl_name = f'D:/ECLIPSE/flt/NRL_1729_{YYYY}{DOY:03}.out'
+        iss_name = f'D:/STPH9/flt/NRL_674f6_{YYYY}{DOY:03}'
         # Load / parse the binary data
-        iss_byte = ehc.load_iss_hs_bytes_from_ccsds(iss_name)
-        ecl_ccsds_byte = ehc.load_eclipse_bytes_from_ccsds(ecl_load)
-        ebyte = etb.breakout_hrt_packet(ecl_ccsds_byte)
+        iss_byte, iss_ccsds_time = ehc.load_iss_hs_bytes_from_ccsds(iss_name)
+        ecl_ccsds_byte, h9_ccsds_time, ecl_ccsds_time = ehc.load_eclipse_bytes_from_ccsds(ecl_load)
+        ebyte = etb.breakout_hrt_packet(ecl_ccsds_byte, h9_ccsds_time, ecl_ccsds_time)
         # 
         print(f'\n Loading {ecl_name} ...\n Loading {iss_name} ...\n{ebyte}\n')
-        # Convert the binary data
-        ECL_L0_ISS(ecl_name, iss_name, iss_byte)
-        ECL_L0_analog(ecl_name, ebyte)
-        ECL_L0_CTS(ecl_name, ebyte)
-        ECL_L0_ALS(ecl_name, ebyte)
+        ### Convert the binary data
+        iss_file    = ECL_L0_ISS(ecl_name, iss_name, iss_byte)
+        analog_file = ECL_L0_analog(ecl_name, ebyte)
+        cts_file    = ECL_L0_CTS(ecl_name, ebyte)
+        als_file    = ECL_L0_ALS(ecl_name, ebyte)
         toc = time.time()
+        
+        print_L0_ECLIPSE_summary(ebyte, iss_byte, f'{eclpath}L0_log/')
+        
         print(f' Completed for {DOY = } in {(toc-tic):.2f} seconds\n')
+        
+        sv = 1
+        L0_plot.ecl0_iss_data_plot(iss_file, save=sv)
+        L0_plot.ecl0_analog_survey_plot(analog_file, save=sv)
+        
+        L0_plot.ecl0_survey_plot(cts_file, unit='CTS', content='TIP_HK', save=sv)
+        L0_plot.ecl0_survey_plot(cts_file, unit='CTS', content='MIP_HK', save=sv)
+        L0_plot.ecl0_survey_plot(cts_file, unit='CTS', content='SUVM_HK', save=sv)
+        
+        L0_plot.ecl0_survey_plot(als_file, unit='ALS', content='TIP_HK', save=sv)
+        L0_plot.ecl0_survey_plot(als_file, unit='ALS', content='MIP_HK', save=sv)
+        L0_plot.ecl0_survey_plot(als_file, unit='ALS', content='SUVM_HK', save=sv)
+        
     
     # import netCDF4 as nc
 
