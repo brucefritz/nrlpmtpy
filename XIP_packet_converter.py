@@ -2,44 +2,47 @@
 """
 Filename: XIP_packet_converter.py
 Author: Bruce A. Fritz, NRL Code 7634
-Description: Set of functions to load Tri-XIP telemetry and parse into 
+Description: Set of functions to load Tri-XIP telemetry and parse into
             meaningful (decimal) values
 
 Date:   v1.0 2025-01-02, Created
 Mods:   v1.1 2025-04-21, Modified class structure to add "sort_by" method
                          Create new GPS time based on internal XIP timer
         v1.2 2025-11-03, Modified M0/M1 classes to include additional time tags
-        
+        v1.3 2026-06-24, Fixed heater base-16 parsing, error field hex decode,
+                         and MODE/HV_STATUS binary decode; vectorized the
+                         timer-rollover correction loop
+
 Classes:
     IDC_M0() --> Data frame (length of n-records) to hold basic 1 Hz telemetry
                  from XIP IDC M0 output
     IDC_M1() --> Data frame (length of n-records) to hold high rate, 10 Hz,
                  telemetry from XIP IDC M1 output
-        
+
 Functions:
-    convert_m0_byt2dec(din,xip) --> Convert Python 'bytearray' of Tri-XIP 
+    convert_m0_byt2dec(din,xip) --> Convert Python 'bytearray' of Tri-XIP
                 output from the binary HRT files to Python list; then
                 convert to the IDC_M0() class described above
     convert_m1_byt2dec(din,xip) --> Same as above but for the M1 data class
-    convert_m0_hex2dec(m, xip) --> Primary function; parses ASCII M0 fromes 
+    convert_m0_hex2dec(m, xip) --> Primary function; parses ASCII M0 fromes
                 from IDC and fills "IDC_M0" class with decimal values
     convert_m1_hex2dec(m, xip) --> Primary function; parses ASCII M1 frames
                 from IDC and fills "IDC_M1" class with decimal values
     IDC_DN_to_dec(DN) --> Algorithm for calculating decimal values from XIP
                 IDC data numbers
-    convert_m0_asc2dec(xip_file, xip) --> Wrapper to convert ascii Tri-XIP 
+    convert_m0_asc2dec(xip_file, xip) --> Wrapper to convert ascii Tri-XIP
                 files into the IDC_M0 data class above.
     convert_m1_asc2dec(xip_file, xip) --> Wrapper to convert ascii Tri-XIP
                 files into the IDC_M1 data class above.
     parse_ascii_packets(xip_file, style='M0') --> Convert ascii input files
-                to a structure similar to how the data is parsed from the 
+                to a structure similar to how the data is parsed from the
                 binary HRT data files
-    
+
 """
 import numpy as np
 import matplotlib.pyplot as plt
 # import astropy.time as apt
-# 
+#
 class IDC_M0():
     # Input: n -- Number of packets
     def __init__(self, n: int, xip: str):
@@ -116,7 +119,7 @@ class IDC_M0():
             if isinstance(attr, np.ndarray): #Check if it is a numpy array
                 # Remove the element at the given index
                 setattr(self, attr_name, np.delete(attr, index_to_remove))
-# 
+#
 class IDC_M1():
     # Input: n -- Number of packets
     def __init__(self, n: int, xip:str):
@@ -170,7 +173,7 @@ class IDC_M1():
             if isinstance(attr, np.ndarray): #Check if it is a numpy array
                 # Remove the element at the given index
                 setattr(self, attr_name, np.delete(attr, index_to_remove))
-# 
+#
 def convert_m0_byt2dec(din: list[float, int, int, bytearray], xip: str) -> IDC_M0:
     """
     ECLIPSE-SPECIFIC !!!
@@ -197,7 +200,7 @@ def convert_m0_byt2dec(din: list[float, int, int, bytearray], xip: str) -> IDC_M
             packet_list.append([p[0],p[1],p[2],'Unicode Decode Error'])
             print(f'Error decoding bytes in M0 packet {i}\n')
     return convert_m0_hex2dec(packet_list,xip)
-# 
+#
 def convert_m1_byt2dec(din: list[bytearray], xip: str) -> IDC_M1:
     """
     Convert Tri-XIP 10 Hz (M1) output from the binary HRT files to IDC_M1 class
@@ -223,16 +226,16 @@ def convert_m1_byt2dec(din: list[bytearray], xip: str) -> IDC_M1:
             packet_list.append([p[0],p[1],p[2],'Unicode Decode Error'])
             print(f'Error decoding bytes in M1 packet {i}\n')
     return convert_m1_hex2dec(packet_list,xip)
-# 
+#
 def convert_m0_hex2dec(m: list[str], xip: str) -> IDC_M0:
     """
     Converts XIP M0 data frames from ASCII HEX to decimal values
-    
+
     Parameters
     ----------
     m : list[str]
         List of data frames with ASCII data ('HEX': str)
-        
+
         'HEX DATA' IDC M0 format:
         # 00 ØØ[zz zzzz] ØØ[zz zzzz]<CR>    PMT Dark Counts, PMT Red Counts
         # 04 ØØ[zz zzzz] Ø[xxx] Ø[xxx]<CR>  PMT UV Counts, HV Mon, HV Adj
@@ -240,23 +243,23 @@ def convert_m0_hex2dec(m: list[str], xip: str) -> IDC_M0:
         # 0C ØØ[zz zzzz] Ø[xxx] Ø[xxx]<CR>  Time Tag, 2.5 VREF Mon, IDC RTD
         # 10 [yyyy] [yyyy] [yyyy] FFFF<CR>  Discrete IDC & Sensor Flags, Error Status, IDC_ID
         # T<CR>
-        
+
     xip : str
         Either "TIP" or "MIP"
-    
+
     Returns
     -------
     IDC_M0
         Data class described above
-    
+
     """
     mout = IDC_M0(len(m), xip)
-    
+
     for i, p in enumerate(m):
         mout.H9_CCSDS_GPS_time[i] = p[0]
         mout.H9_CCSDS_ECL_time[i] = p[1]
         mout.ECL_MOE_GPS_time[i] = p[2]
-        
+
         try:
             mout.time[i]   = int(p[-1][74:76] + p[-1][77:81], 16)
             mout.dark[i]   = int(p[-1][5:7]   + p[-1][8:12], 16)
@@ -265,14 +268,14 @@ def convert_m0_hex2dec(m: list[str], xip: str) -> IDC_M0:
                 mout.uv[i]   = int(p[-1][28:30] + p[-1][31:35], 16)
                 mout.T_F1[i] = IDC_DN_to_dec(int(p[-1][55:58], 16))
                 mout.T_F2[i] = IDC_DN_to_dec(int(p[-1][60:63], 16))
-                mout.heater[i]  = int(p[-1][100:104], 32)
+                mout.heater[i]  = int(p[-1][100:104], 16)
             if xip=='MIP':
                 mout.Mg[i]     = int(p[-1][15:17] + p[-1][18:22], 16)
                 mout.VK[i]     = int(p[-1][28:30] + p[-1][31:35], 16)
                 mout.T_LENS[i] = IDC_DN_to_dec(int(p[-1][55:58], 16))
-                mout.T_PMT[i]  = IDC_DN_to_dec(int(p[-1][60:63], 16)) 
-                mout.error[i]  = p[-1][100:104]
-            # 
+                mout.T_PMT[i]  = IDC_DN_to_dec(int(p[-1][60:63], 16))
+                mout.error[i]  = int(p[-1][100:104], 16)
+            #
             HV_V           = int(p[-1][37:40], 16) * 3.3 / 4095
             mout.HV_mon[i] = (HV_V - 2.5)*(-1000) # Convert ADC V to HV
             mout.HV_adj[i] = int(p[-1][42:45], 16) * 3.3 / 4095
@@ -282,9 +285,9 @@ def convert_m0_hex2dec(m: list[str], xip: str) -> IDC_M0:
             mout.T_HV[i]   = IDC_DN_to_dec(int(p[-1][65:68], 16))
             mout.IDC_ID[i] = p[-1][105:109]
             mout.discrete[i] = p[-1][95:99]
-            # 
+            #
             disc_bin = bin(int(p[-1][95:99], 16))[2:].zfill(16)
-            mout.MODE[i]             = disc_bin[-2:]
+            mout.MODE[i]             = int(disc_bin[-2:], 2)
             mout.HV_EVENT[i]         = disc_bin[-3]
             mout.SUN_EVENT[i]        = disc_bin[-4]
             mout.DK_EVENT[i]         = disc_bin[-5]
@@ -297,38 +300,31 @@ def convert_m0_hex2dec(m: list[str], xip: str) -> IDC_M0:
             mout.HV_OVERRIDE[i]      = disc_bin[-12]
             mout.SHUTTER_OVERRIDE[i] = disc_bin[-13]
             mout.V5_OVERRIDE[i]      = disc_bin[-14]
-            mout.HV_STATUS[i]        = disc_bin[0:2]
+            mout.HV_STATUS[i]        = int(disc_bin[0:2], 2)
         except IndexError: print('Skipping empty packet')
-        except ValueError: 
+        except ValueError:
             print(f'Invalid data: {p[-1]}')
-    # 
+    #
     try:
-        dt = np.zeros(len(mout.time[1:]))
-        rolltime = np.zeros(len(mout.time))
-        # Catch points where counter rolls over (Max value: 0xFFFFFF)
-        for x in range(len(dt)):
-            dt[x] = float(mout.time[x+1])-float(mout.time[x])
-            
-            if dt[x] < -1000:
-                delta = abs(dt[x])
-                dt[x] += delta + 1
-                rolltime[(x+1):] += float(delta)
-                print(f'  XIP M0 Timer rollover correction at GPS time: {mout.H9_CCSDS_GPS_time[x]}')
-            # if dt[x] > 10:
-    #             delta = abs(dt[x])
-    #             dt[x] += -delta + 1
-    #             rolltime[(x+1):] -= float(delta)
-        
-        mout.time = np.array([x + y for x,y in zip(mout.time, rolltime)], dtype='float')
+        if len(mout.time) < 2:
+            raise IndexError
+        dt = np.diff(mout.time.astype(float))
+        rollover_mask = dt < -1000
+        delta = np.where(rollover_mask, np.abs(dt), 0.0)
+        rolltime = np.concatenate(([0.0], np.cumsum(delta)))
+        for x in np.nonzero(rollover_mask)[0]:
+            print(f'  XIP M0 Timer rollover correction at GPS time: {mout.H9_CCSDS_GPS_time[x]}')
+
+        mout.time = mout.time.astype(float) + rolltime
         mout.sort_by('time')
-        
+
     except IndexError: print(f'No {xip} time available\n')
-    
+
     return mout
-# 
+#
 def IDC_DN_to_dec(DN: int) -> float:
     """
-    Convert raw data numbers to decimal output 
+    Convert raw data numbers to decimal output
 
     Parameters
     ----------
@@ -344,17 +340,17 @@ def IDC_DN_to_dec(DN: int) -> float:
     DN_V = (DN / 4095) * 3.3
     DN_R = 4990 * (0.4)/(DN_V - 0.4)
     return (0.00001 * (DN_R * DN_R)) + (0.2355 * DN_R) - 245.65
-# 
+#
 def convert_m1_hex2dec(m: list[str], xip: str) -> IDC_M1:
     """
     Converts XIP 10 Hz M1 data frame from ASCII HEX to decimal values
-    
+
     Parameters
     ----------
     m : list[str]
         List of data frames, each itself a list with a timp tag (GPS_time : int)
         and ASCII data ('HEX': str)
-        
+
         'HEX DATA' format is:
         # IDC M1
         # 00 IIII dddd dddd dddd<CR> IIII = IDC_ID
@@ -366,22 +362,22 @@ def convert_m1_hex2dec(m: list[str], xip: str) -> IDC_M1:
         # 18 uuuu uuuu uuuu uuuu<CR>
         # 1C uuuu uuuu uuuu CCCC<CR> CCCC = Counter
         # T<CR>
-        
+
     xip : str
         Either "TIP" or "MIP"
-    
+
     Returns
     -------
     IDC_M1
         Data class described above
-    
+
     """
     mout = IDC_M1(len(m), xip)
     for i, p in enumerate(m):
         mout.H9_CCSDS_GPS_time[i*10:(i*10+10)] = p[0]
         mout.H9_CCSDS_ECL_time[i*10:(i*10+10)] = p[1]
         mout.ECL_MOE_GPS_time[i*10:(i*10+10)] = p[2]
-        
+
         try:
             mout.IDC_ID = p[-1][3:7]
             try:
@@ -400,43 +396,36 @@ def convert_m1_hex2dec(m: list[str], xip: str) -> IDC_M1:
             if xip == 'TIP':
                 try: mout.red[i*10:(i*10+10)] = [int(x, 16) for x in rd]
                 except ValueError: print(f'Skipping M1 Red packet # {i}')
-                
+
                 try: mout.uv[i*10:(i*10+10)]  = [int(x, 16) for x in uv]
                 except ValueError: print(f'Skipping M1 UV packet # {i}')
             if xip == 'MIP':
                 try: mout.Mg[i*10:(i*10+10)] = [int(x, 16) for x in rd]
                 except ValueError: print(f'Skipping M1 Mg+ packet # {i}')
-                
+
                 try: mout.VK[i*10:(i*10+10)] = [int(x, 16) for x in uv]
                 except ValueError: print(f'Skipping M1 VK packet # {i}')
         except IndexError: print('Skipping Empty Packet')
-    # 
+    #
     try:
-        dt = np.zeros(len(mout.time[1:]))
-        rolltime = np.zeros(len(mout.time))
-        # # Catch points where counter rolls over (Max value: 0xFFFF)
-        for x in range(len(dt)):
-            dt[x] = float(mout.time[x+1])-float(mout.time[x])
-            
-            if dt[x] < -1000:
-                delta = abs(dt[x])
-                dt[x] += delta + 1
-                rolltime[(x+1):] += float(delta)
-                print(f' {xip} M1 Time Rollover correction at GPS time: {mout.H9_CCSDS_GPS_time[x]}')
-            # if dt[x] > 10:
-            #     delta = abs(dt[x])
-            #     dt[x] += -delta + 1
-            #     rolltime[(x+1):] -= float(delta)
-        
-        mout.time = np.array([x + y for x,y in zip(mout.time, rolltime)], dtype='float')
+        if len(mout.time) < 2:
+            raise IndexError
+        dt = np.diff(mout.time.astype(float))
+        rollover_mask = dt < -1000
+        delta = np.where(rollover_mask, np.abs(dt), 0.0)
+        rolltime = np.concatenate(([0.0], np.cumsum(delta)))
+        for x in np.nonzero(rollover_mask)[0]:
+            print(f' {xip} M1 Time Rollover correction at GPS time: {mout.H9_CCSDS_GPS_time[x]}')
+
+        mout.time = mout.time.astype(float) + rolltime
         mout.sort_by('time')
-        
+
     except IndexError: print(f'No {xip} time available\n')
-    
+
     # try:
     #     dt = np.abs(np.diff(mout.time))
-    #     dt_idx = np.where(dt < 0.8)[0] # 
-    #     # Note the indices *should* be incremented by 1 to offset the np.diff change, 
+    #     dt_idx = np.where(dt < 0.8)[0] #
+    #     # Note the indices *should* be incremented by 1 to offset the np.diff change,
     #     # but because we're given 2 values per outlier, we can just use the 2nd idx
     #     rem_idx = [dt_idx[i] for i in range(1, len(dt_idx), 2)]
     #     for idx,val in enumerate(rem_idx):
@@ -444,14 +433,14 @@ def convert_m1_hex2dec(m: list[str], xip: str) -> IDC_M1:
     #         gn.remove_data_point(val-idx)
     # except:
     #     print(' Encoder data all good ... ')
-    
-    # 
-    
+
+    #
+
     return mout
-# 
+#
 def convert_m0_asc2dec(xip_file: str, xip: str) -> IDC_M0:
     """
-    Wrapper to convert ascii Tri-XIP files into the IDC_M0 data class above. 
+    Wrapper to convert ascii Tri-XIP files into the IDC_M0 data class above.
 
     Parameters
     ----------
@@ -468,10 +457,10 @@ def convert_m0_asc2dec(xip_file: str, xip: str) -> IDC_M0:
     """
     data_packets = parse_ascii_packets(xip_file, 'M0')
     return convert_m0_hex2dec(data_packets, xip)
-# 
+#
 def convert_m1_asc2dec(xip_file: str, xip: str) -> IDC_M1:
     """
-    
+
 
     Parameters
     ----------
@@ -488,10 +477,10 @@ def convert_m1_asc2dec(xip_file: str, xip: str) -> IDC_M1:
     """
     data_packets = parse_ascii_packets(xip_file, 'M1')
     return convert_m1_hex2dec(data_packets, xip)
-# 
+#
 def parse_ascii_packets(xip_file: str, style='M0') -> list[int, str]:
     """
-    Convert ascii input files to a structure similar to how the data is parsed 
+    Convert ascii input files to a structure similar to how the data is parsed
     from the binary HRT data files
 
     Parameters
@@ -500,7 +489,7 @@ def parse_ascii_packets(xip_file: str, style='M0') -> list[int, str]:
         Full path and name for the target ascii file
     style: str
         Default is for M0 packet output, toggle "style" to return M1
-    
+
     Returns
     -------
     m0 or m1 : list[str]
@@ -522,7 +511,7 @@ def parse_ascii_packets(xip_file: str, style='M0') -> list[int, str]:
         if line[0:2] == '08': packet += line
         if line[0:2] == '0C': packet += line
         if line[0:2] == '10': packet += line
-        # 
+        #
         if line[0:2] == '20': packet += line
         if line[0:2] == '24': packet += line
         if line[0:2] == '28': packet += line
@@ -531,12 +520,12 @@ def parse_ascii_packets(xip_file: str, style='M0') -> list[int, str]:
         if line[0:2] == '34': packet += line
         if line[0:2] == '38': packet += line
         if line[0:2] == '3C': packet += line
-        # 
+        #
         if line[0] == 'T':
             packet += line
             if len(packet) == 117: m0.append([time, packet])
             if len(packet) == 186: m1.append([time, packet])
             packet = ''
-    # 
+    #
     if style == 'M1': return m1
     return m0
