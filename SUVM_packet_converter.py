@@ -20,8 +20,8 @@ Mods:   v1.1 2025-04-22, Modified class structure to add "sort_by" method
                          command, and encoder packet classes; added
                          _suvm_time_checks() helper to all converters to
                          apply sequence_count rollover correction,
-                         system_counter reset correction, sort by GPS time,
-                         and warn on zero or anomalous time-tag entries
+                         system_counter correction, and warn on zero or 
+                         anomalous time-tag entries
 
 Classes:
     suvm_bootloader_packet()
@@ -292,15 +292,40 @@ def _suvm_time_checks(pkt, name: str):
         offsets = np.concatenate(([0], np.cumsum(np.where(ro, 256, 0)))).astype(np.uint32)
         pkt.sequence_count = pkt.sequence_count.astype(np.uint32) + offsets
         print(f'  [SUVM {name}] sequence_count rollover: {int(np.count_nonzero(ro))} event(s)')
+    # --- system_counter spike-cluster removal and interpolation ---
+    # A cluster of anomalous values is bounded by a large positive jump (entry)
+    # and a large negative jump (exit). Clusters may span more than one point.
+    # Bad values are replaced in-place with linear interpolation between the
+    # last good sample before the cluster and the first good sample after it;
+    # dt_sys is then recomputed so genuine firmware resets are still caught.
+    dt_sys = np.diff(pkt.system_counter)
+    up_events   = np.nonzero(dt_sys >  100.)[0]
+    down_events = np.nonzero(dt_sys < -100.)[0]
+    if len(up_events) > 0 and len(down_events) > 0:
+        for x in down_events:
+            preceding_up = up_events[up_events < x]
+            if len(preceding_up) > 0:
+                i0 = int(preceding_up[-1])   # last good index before cluster
+                i1 = int(x) + 1              # first good index after cluster
+                n_cluster = i1 - i0 - 1
+                if i1 < n:
+                    y0 = pkt.system_counter[i0]
+                    y1 = pkt.system_counter[i1]
+                    idx = np.arange(i0 + 1, i1)
+                    pkt.system_counter[i0+1:i1] = y0 + (y1 - y0) * (idx - i0) / (i1 - i0)
+                    print(f'  [SUVM {name}] Removed and interpolated system_counter '
+                          f'over {n_cluster} bad point(s) at indices {i0+1}–{i1-1}')
+                else:
+                    print(f'  [SUVM {name}] system_counter spike cluster at end of '
+                          f'array (indices {i0+1}+): cannot interpolate forward')
     # --- system_counter reset (large negative jump = firmware reboot) ---
+    # Recompute after interpolation so genuine resets are still corrected.
     dt_sys = np.diff(pkt.system_counter)
     rs = dt_sys < -100.
     if np.any(rs):
         delta = np.where(rs, np.abs(dt_sys), 0.)
         pkt.system_counter = pkt.system_counter + np.concatenate(([0.], np.cumsum(delta)))
         print(f'  [SUVM {name}] system_counter reset: {int(np.count_nonzero(rs))} event(s)')
-    # --- sort by H9_CCSDS_GPS_time ---
-    # pkt.sort_by('H9_CCSDS_GPS_time')
     # --- zero-valued time entries (skipped/missing packets leave init zeros) ---
     for field in ('H9_CCSDS_GPS_time', 'H9_CCSDS_ECL_time', 'ECL_MOE_GPS_time'):
         z = int(np.count_nonzero(getattr(pkt, field) == 0))
