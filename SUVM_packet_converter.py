@@ -15,6 +15,13 @@ Mods:   v1.1 2025-04-22, Modified class structure to add "sort_by" method
                          suvm_general_converter's reset_status/last_cmd_*
                          fields to match the bootloader header layout;
                          vectorized the encoder_counts unpacking loop
+        v1.4 2026-07-01, Changed sequence_count dtype from ubyte to uint32
+                         in all packet classes; added sort_by to bootloader,
+                         command, and encoder packet classes; added
+                         _suvm_time_checks() helper to all converters to
+                         apply sequence_count rollover correction,
+                         system_counter reset correction, sort by GPS time,
+                         and warn on zero or anomalous time-tag entries
 
 Classes:
     suvm_bootloader_packet()
@@ -31,7 +38,7 @@ Functions:
 
 """
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 # import astropy.time as apt
 #
 class suvm_bootloader_packet():
@@ -41,7 +48,7 @@ class suvm_bootloader_packet():
         self.ECL_MOE_GPS_time   = np.zeros(n, dtype='uint64')
         self.header             = np.zeros(n, dtype='uintc')  #  0
         self.apid               = np.zeros(n, dtype='ubyte')  #  4
-        self.sequence_count     = np.zeros(n, dtype='ubyte')  #  5
+        self.sequence_count     = np.zeros(n, dtype='uint32') #  5
         self.length             = np.zeros(n, dtype='uint16') #  6
         self.system_counter     = np.zeros(n, dtype='float64')#  8, 1/1000 s
         self.gps_pps            = np.zeros(n, dtype='float64')# 16, 1/1000 s
@@ -68,6 +75,15 @@ class suvm_bootloader_packet():
     def __str__(self):
         t1 = f"SUVM Bootloader Packets: {len(self.header)}"
         return f'{t1}\n'
+    def sort_by(self, key: str):
+        if not hasattr(self, key): raise ValueError(f"No such field: {key}")
+        sort_field = getattr(self, key)
+        if not isinstance(sort_field, np.ndarray):
+            raise TypeError(f"Field '{key}' is not a NumPy array and cannot be sorted.")
+        sort_idx = np.argsort(sort_field)
+        for attr, value in self.__dict__.items():
+            if isinstance(value, np.ndarray) and len(value) == len(sort_field):
+                setattr(self, attr, value[sort_idx])
 
 class suvm_general_packet():
     # Input: n -- Number of packets
@@ -77,7 +93,7 @@ class suvm_general_packet():
         self.ECL_MOE_GPS_time   = np.zeros(n, dtype='uint64')
         self.header             = np.zeros(n, dtype='uintc')  #  0
         self.apid               = np.zeros(n, dtype='ubyte')  #  4
-        self.sequence_count     = np.zeros(n, dtype='ubyte')  #  5
+        self.sequence_count     = np.zeros(n, dtype='uint32') #  5
         self.length             = np.zeros(n, dtype='uint16') #  6
         self.system_counter     = np.zeros(n, dtype='float64') #  8, 1/1000 s
         self.gps_pps            = np.zeros(n, dtype='float64') # 16, 1/1000 s
@@ -165,7 +181,7 @@ class suvm_command_packet():
         self.ECL_MOE_GPS_time   = np.zeros(n, dtype='uint64')
         self.header             = np.zeros(n, dtype='uintc')  #  0
         self.apid               = np.zeros(n, dtype='ubyte')  #  4
-        self.sequence_count     = np.zeros(n, dtype='ubyte')  #  5
+        self.sequence_count     = np.zeros(n, dtype='uint32') #  5
         self.length             = np.zeros(n, dtype='uint16') #  6
         self.system_counter     = np.zeros(n, dtype='float64') # 8, 1/1000 s
         self.last_command       = np.zeros(n, dtype='S50') # Sufficient bytes for any cmd
@@ -175,6 +191,15 @@ class suvm_command_packet():
     def __str__(self):
         t1 = f"SUVM Command Packets: {len(self.header)}"
         return f'{t1}\n'
+    def sort_by(self, key: str):
+        if not hasattr(self, key): raise ValueError(f"No such field: {key}")
+        sort_field = getattr(self, key)
+        if not isinstance(sort_field, np.ndarray):
+            raise TypeError(f"Field '{key}' is not a NumPy array and cannot be sorted.")
+        sort_idx = np.argsort(sort_field)
+        for attr, value in self.__dict__.items():
+            if isinstance(value, np.ndarray) and len(value) == len(sort_field):
+                setattr(self, attr, value[sort_idx])
     #
 class suvm_memory_packet():
     def __init__(self, n):
@@ -203,7 +228,7 @@ class suvm_encoder_packet():
         self.ECL_MOE_GPS_time   = np.zeros(n, dtype='uint64')
         self.header             = np.zeros(n, dtype='uintc')  #  0
         self.apid               = np.zeros(n, dtype='ubyte')  #  4
-        self.sequence_count     = np.zeros(n, dtype='ubyte')  #  5
+        self.sequence_count     = np.zeros(n, dtype='uint32') #  5
         self.length             = np.zeros(n, dtype='uint16') #  6
         self.system_counter     = np.zeros(n, dtype='float64') #  8, 1/1000 s
         self.time_first_element = np.zeros(n, dtype='float64') #  16, 1/1000 s
@@ -215,6 +240,19 @@ class suvm_encoder_packet():
     def __str__(self):
         t1 = f"SUVM Encoder Packets: {len(self.header)}"
         return f'{t1}\n'
+    def sort_by(self, key: str):
+        if not hasattr(self, key): raise ValueError(f"No such field: {key}")
+        sort_field = getattr(self, key)
+        if not isinstance(sort_field, np.ndarray):
+            raise TypeError(f"Field '{key}' is not a NumPy array and cannot be sorted.")
+        sort_idx = np.argsort(sort_field)
+        n = len(sort_field)
+        for attr, value in self.__dict__.items():
+            if isinstance(value, np.ndarray):
+                if len(value) == n:
+                    setattr(self, attr, value[sort_idx])
+                elif len(value) == n * 125 and attr == 'encoder_counts':
+                    self.encoder_counts = value.reshape(n, 125)[sort_idx].reshape(-1)
     def remove_data_point(self, index_to_remove):
         """
         Removes a data point at the specified index from all arrays in class
@@ -236,6 +274,43 @@ class suvm_encoder_packet():
                     # Remove the element at the given index
                     setattr(self, attr_name, np.delete(attr, index_to_remove))
     #
+def _suvm_time_checks(pkt, name: str):
+    """
+    Post-processing applied to every SUVM packet object after its parse loop:
+      1. sequence_count rollover correction (ubyte counter wraps at 256)
+      2. system_counter reset correction (reboot drops counter back to ~0)
+      3. sort all arrays by H9_CCSDS_GPS_time
+      4. warn on zero-valued time-tag entries and anomalous GPS time gaps
+    """
+    n = len(pkt.H9_CCSDS_GPS_time)
+    if n < 2:
+        return
+    # --- sequence_count rollover (in packet-arrival order) ---
+    dt_seq = np.diff(pkt.sequence_count.astype(np.int32))
+    ro = dt_seq < 0
+    if np.any(ro):
+        offsets = np.concatenate(([0], np.cumsum(np.where(ro, 256, 0)))).astype(np.uint32)
+        pkt.sequence_count = pkt.sequence_count.astype(np.uint32) + offsets
+        print(f'  [SUVM {name}] sequence_count rollover: {int(np.count_nonzero(ro))} event(s)')
+    # --- system_counter reset (large negative jump = firmware reboot) ---
+    dt_sys = np.diff(pkt.system_counter)
+    rs = dt_sys < -100.
+    if np.any(rs):
+        delta = np.where(rs, np.abs(dt_sys), 0.)
+        pkt.system_counter = pkt.system_counter + np.concatenate(([0.], np.cumsum(delta)))
+        print(f'  [SUVM {name}] system_counter reset: {int(np.count_nonzero(rs))} event(s)')
+    # --- sort by H9_CCSDS_GPS_time ---
+    # pkt.sort_by('H9_CCSDS_GPS_time')
+    # --- zero-valued time entries (skipped/missing packets leave init zeros) ---
+    for field in ('H9_CCSDS_GPS_time', 'H9_CCSDS_ECL_time', 'ECL_MOE_GPS_time'):
+        z = int(np.count_nonzero(getattr(pkt, field) == 0))
+        if z:
+            print(f'  [SUVM {name}] Warning: {z} zero-valued {field} entries')
+    # --- anomalous GPS time gaps (out-of-order or missing > 10 s) ---
+    dt_gps = np.diff(pkt.H9_CCSDS_GPS_time)
+    for x in np.nonzero((dt_gps < -10) | (dt_gps > 10.))[0]:
+        print(f'  [SUVM {name}] H9_CCSDS_GPS_time anomaly: {dt_gps[x]:+.3f}s at index {x+1}')
+#
 def suvm_bootloader_converter(s: list) -> suvm_bootloader_packet:
     """
     Converts SUVM bootloader frames to decimal values
@@ -282,6 +357,7 @@ def suvm_bootloader_converter(s: list) -> suvm_bootloader_packet:
         bt.RAM_MBE[i]           = int.from_bytes(p[62:64],'little')
         bt.crc[i]               = int.from_bytes(p[64:68],'little')
     #
+    _suvm_time_checks(bt, 'bootloader')
     return bt
 #
 def suvm_command_converter(s: list) -> suvm_command_packet:
@@ -314,6 +390,7 @@ def suvm_command_converter(s: list) -> suvm_command_packet:
         cm.last_command[i]      = p[16:cm.length[i]].hex()
         cm.crc[i]               = int.from_bytes(p[cm.length[i]:cm.length[i]+4], 'big')
     #
+    _suvm_time_checks(cm, 'command')
     return cm
 
 def suvm_encoder_converter(s: list) -> suvm_encoder_packet:
@@ -349,6 +426,7 @@ def suvm_encoder_converter(s: list) -> suvm_encoder_packet:
         en.padding[i]           = 0
         en.crc[i]               = int.from_bytes(p[276:280], 'little')
     #
+    _suvm_time_checks(en, 'encoder')
     return en
 
 def suvm_general_converter(s: list) -> suvm_general_packet:
@@ -423,6 +501,7 @@ def suvm_general_converter(s: list) -> suvm_general_packet:
         gn.encoder_angle[i]       = (gn.encoder_current_ct[i] - gn.encoder_zero_offset[i]) * 360 / 2**13
         gn.target_angle[i]        = (gn.encoder_target[i] - gn.encoder_zero_offset[i]) * 360 / 2**13
     #
+    _suvm_time_checks(gn, 'general')
     try:
         d_enc = np.abs(np.diff(gn.encoder_angle))
         d_enc_idx = np.where(d_enc > 2.5)[0] #
@@ -434,90 +513,5 @@ def suvm_general_converter(s: list) -> suvm_general_packet:
             gn.remove_data_point(val-idx)
     except:
         print(' Encoder data all good ... ')
-
-    # try:
-
-
-    # try:
-        # iso_t = apt.Time(gn.H9_CCSDS_GPS_time[0], format='gps')
-        # print(f'{iso_t.fits}')
-
-        # k=1
-        # ctr=0
-
-        # diff = np.diff(gn.gps_pps)
-        # pps_array=[]
-        # inst_array=[]
-
-        # while 1:
-        #     if k > (len(s.general)-1): break
-        #     if diff[k] > 0.5:
-        #         pps_array.append(np.floor(s.gen_ccsds_time[k]))
-        #         inst_array.append(gn.system_counter[k])
-
-        #     k+=1
-
-        # # Fit a line: gps_time ≈ a * instrument_pps_time + b
-        # coeffs = np.polyfit(inst_array, pps_array, deg=1)
-        # slope, intercept = coeffs
-
-        # Align all instrument times to GPS frame
-        # corrected_inst_times = slope * gn.system_counter + intercept
-        # corrected_gps_time = slope * s.general_time + intercept
-
-        # gn.system_counter = corrected_inst_times
-        # gn.suvm_gps_time = corrected_gps_time
-
-        # while 1:
-        #     if k > (len(s.general)-1): break
-        #     dt = gn.gps_pps[k] - gn.gps_pps[k-1]
-        #     if dt > 0.1:
-        #         gps_int = np.floor(s.general_time[k])
-
-        #         if k < 10: # edge case before first PPS signal
-        #             for m in range(1,10):
-        #                 gn.suvm_gps_time[k-m] = gps_int - m/10.0
-
-        #         # zero values probably the result of having 11 data points but
-        #         # my loop only hard codes 10
-
-        #         if abs(np.floor(s.general_time[k-10]) - gps_int) < 0.5:
-        #             print('ping')
-        #             gps_int += 1
-        #         # if gps_int - np.floor(s.general_time[k+15]) > 1.5: gps
-
-        #         # repeated or skipped gps values
-
-        #         for m in range(0,10):
-        #             try: gn.suvm_gps_time[k+m] = gps_int + m/10.0
-        #             except IndexError: break
-
-        #         ctr+=1
-
-        #     k+=1
-
-
-        # dt = np.zeros(len(gn.sequence_count[1:]))
-        # rolltime = np.zeros(len(gn.sequence_count))
-        # Catch points where counter rolls over (Max value: 0xFFFF)
-        # for x in range(len(dt)):
-        #     dt[x] = (float(gn.sequence_count[x+1])-float(gn.sequence_count[x]))
-
-
-        # gn.sequence_count = np.array([x + y for x,y in zip(gn.sequence_count, rolltime)], dtype='float')
-        # gn.sort_by('sequence_count')
-
-        # plt.plot(gn.sequence_count, 'r')
-        # plt.show()
-
-        # for i in range(len(dt)):
-        #     gn.time[i+1] = gn.time[i] + dt[i]/10.0
-        # print('final times:')
-        # print(f'CCSDS: {s.general_time[i+1]},   Time: {gn.time[i+1]}')
-        # print('start values:')
-        # print(f'CCSDS: {s.general_time[0]},   Time: {gn.ccsds_time_tag[0]}')
-
-    # except IndexError:
-    #     print('No SUVM time available\n')
 
     return gn
